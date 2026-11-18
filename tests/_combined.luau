@@ -485,15 +485,15 @@ local RARITY_TINT = {
 -- Cheese is yellow, the fry box is red, the bowls are red lacquer — the
 -- food's own colour, never the old humanoid body colour.
 local FOOD_COLOR = {
-	soggy_fry = { 210, 40, 40 },
-	noodle_ned = { 205, 60, 55 },
+	soggy_fry = { 225, 55, 50 },
+	noodle_ned = { 220, 75, 65 },
 	dancing_dumpling = { 255, 240, 200 },
 	turbo_taco = { 235, 160, 40 },
 	lord_lasagna = { 245, 200, 70 },
 	queen_queso = { 255, 215, 0 },
-	king_kebab = { 165, 90, 55 },
-	baron_burger = { 215, 155, 80 },
-	eternal_ramen = { 160, 40, 40 },
+	king_kebab = { 195, 115, 70 },
+	baron_burger = { 238, 192, 105 },
+	eternal_ramen = { 205, 65, 60 },
 }
 
 -- Iris colour per snack (the food's own accent, not the rarity colour).
@@ -638,11 +638,21 @@ end
 
 -- Cylinder: Roblox cylinders run along X. axis "Y" stands it upright,
 -- axis "Z" points it forward; extra tilt rides on top.
+-- `length` / `diameter` are in u units (like every other builder
+-- offset), so they MUST be scaled by u here — addBall/addBox get their
+-- u-scaled size from the caller's S(), but addCyl builds its own size
+-- vector, and the old code forgot the * u: every cylinder (both bowls,
+-- both rims, broths, bottom bun, patty, tomato, skewer, crown, chopsticks,
+-- narutomaki) was built at 0.05-1.45 STUDS instead of 0.05u-1.45u, so in
+-- Roblox the bowls/buns were microscopic dots and the burger lost its
+-- whole stack while the Three.js preview (which scales cylinders by u)
+-- showed the intended design. That is the brown-box bug.
 local function addCyl(
 	model: Model,
 	name: string,
 	length: number,
 	diameter: number,
+	u: number,
 	color: Color3,
 	material: Enum.Material,
 	transparency: number,
@@ -651,7 +661,7 @@ local function addCyl(
 	axis: string,
 	tilt: number
 ): Part
-	local size = Vector3.new(length, diameter, diameter)
+	local size = Vector3.new(length * u, diameter * u, diameter * u)
 	if axis == "Y" then
 		return addPart(model, name, Enum.PartType.Cylinder, size, color, material, transparency, position, headingRad, 0, 0, math.pi / 2 + tilt)
 	elseif axis == "Z" then
@@ -736,34 +746,34 @@ local function addFace(ctx: Ctx, fwd: number, up: number, s: number, skin: Color
 	local transp = ctx.bodyTransp
 	-- Tapered brows, thicker at the inner end; the left brow sits a touch
 	-- higher than the right — asymmetry = life.
-	addBall(model, "BrowL", S(ctx, 0.17 * s, 0.04 * s, 0.05 * s), Color3.fromRGB(60, 35, 20), fabric, 0, P(ctx, fwd - 0.01 * s, up + 0.21 * s, -0.20 * s), ctx.heading, 0, 0, 0.16)
-	addBall(model, "BrowR", S(ctx, 0.17 * s, 0.04 * s, 0.05 * s), Color3.fromRGB(60, 35, 20), fabric, 0, P(ctx, fwd - 0.01 * s, up + 0.19 * s, 0.20 * s), ctx.heading, 0, 0, -0.08)
+	addBall(model, "BrowL", S(ctx, 0.17 * s, 0.04 * s, 0.12 * s), Color3.fromRGB(60, 35, 20), fabric, 0, P(ctx, fwd - 0.01 * s, up + 0.21 * s, -0.20 * s), ctx.heading, 0, 0, 0.16)
+	addBall(model, "BrowR", S(ctx, 0.17 * s, 0.04 * s, 0.12 * s), Color3.fromRGB(60, 35, 20), fabric, 0, P(ctx, fwd - 0.01 * s, up + 0.19 * s, 0.20 * s), ctx.heading, 0, 0, -0.08)
 	for _, side in ipairs({ -1, 1 }) do
 		local name = if side < 0 then "EyeL" else "EyeR"
 		local x = side * 0.20 * s
 		-- White: tall, almost straight-sided oval.
-		addBall(model, name, S(ctx, 0.20 * s, 0.27 * s, 0.09 * s), Color3.fromRGB(235, 235, 230), plastic, 0, P(ctx, fwd - 0.03 * s, up + 0.05 * s, x), ctx.heading, 0, 0, 0)
+		addBall(model, name, S(ctx, 0.20 * s, 0.27 * s, 0.16 * s), Color3.fromRGB(235, 235, 230), plastic, 0, P(ctx, fwd - 0.03 * s, up + 0.05 * s, x), ctx.heading, 0, 0, 0)
 		-- Dark outline ring, slightly larger than the iris, behind it.
-		addBall(model, name .. "Outline", S(ctx, 0.15 * s, 0.21 * s, 0.04 * s), Color3.fromRGB(25, 25, 30), plastic, 0, P(ctx, fwd - 0.005 * s, up + 0.04 * s, x), ctx.heading, 0, 0, 0)
+		addBall(model, name .. "Outline", S(ctx, 0.15 * s, 0.21 * s, 0.11 * s), Color3.fromRGB(25, 25, 30), plastic, 0, P(ctx, fwd - 0.005 * s, up + 0.04 * s, x), ctx.heading, 0, 0, 0)
 		-- Iris: tall oval with the food's own accent colour.
-		addBall(model, name .. "Iris", S(ctx, 0.13 * s, 0.19 * s, 0.05 * s), ctx.iris, plastic, 0, P(ctx, fwd + 0.005 * s, up + 0.04 * s, x), ctx.heading, 0, 0, 0)
+		addBall(model, name .. "Iris", S(ctx, 0.13 * s, 0.19 * s, 0.14 * s), ctx.iris, plastic, 0, P(ctx, fwd + 0.005 * s, up + 0.04 * s, x), ctx.heading, 0, 0, 0)
 		-- Pupil.
-		addBall(model, name .. "Pupil", S(ctx, 0.065 * s, 0.09 * s, 0.04 * s), Color3.fromRGB(20, 20, 25), plastic, 0, P(ctx, fwd + 0.025 * s, up + 0.04 * s, x), ctx.heading, 0, 0, 0)
+		addBall(model, name .. "Pupil", S(ctx, 0.065 * s, 0.09 * s, 0.13 * s), Color3.fromRGB(20, 20, 25), plastic, 0, P(ctx, fwd + 0.025 * s, up + 0.04 * s, x), ctx.heading, 0, 0, 0)
 		-- One highlight, upper-outer corner of the iris.
-		addBall(model, name .. "Glint", S(ctx, 0.04 * s, 0.05 * s, 0.03 * s), Color3.fromRGB(235, 235, 235), plastic, 0, P(ctx, fwd + 0.04 * s, up + 0.10 * s, x + side * 0.035 * s), ctx.heading, 0, 0, 0)
+		addBall(model, name .. "Glint", S(ctx, 0.04 * s, 0.05 * s, 0.12 * s), Color3.fromRGB(235, 235, 235), plastic, 0, P(ctx, fwd + 0.04 * s, up + 0.10 * s, x + side * 0.035 * s), ctx.heading, 0, 0, 0)
 		-- Upper lid: food colour, covering the top of the iris.
-		addBall(model, name .. "Lid", S(ctx, 0.22 * s, 0.09 * s, 0.05 * s), skin, fabric, transp, P(ctx, fwd + 0.00 * s, up + 0.15 * s, x), ctx.heading, 0, 0, 0)
+		addBall(model, name .. "Lid", S(ctx, 0.22 * s, 0.09 * s, 0.10 * s), skin, fabric, transp, P(ctx, fwd + 0.00 * s, up + 0.15 * s, x), ctx.heading, 0, 0, 0)
 	end
 	-- Modelled nose: a short bridge stepping out of the face, then a
 	-- rounded tip — the side view gets real relief, no flat plate.
-	addBox(model, "NoseBridge", S(ctx, 0.05 * s, 0.12 * s, 0.05 * s), skinLo, fabric, transp, P(ctx, fwd + 0.015 * s, up - 0.02 * s, 0), ctx.heading, 0, 0, 0)
-	addBall(model, "NoseTip", S(ctx, 0.09 * s, 0.07 * s, 0.08 * s), skin, fabric, transp, P(ctx, fwd + 0.035 * s, up - 0.08 * s, 0), ctx.heading, 0, 0, 0)
+	addBox(model, "NoseBridge", S(ctx, 0.05 * s, 0.12 * s, 0.12 * s), skinLo, fabric, transp, P(ctx, fwd + 0.015 * s, up - 0.02 * s, 0), ctx.heading, 0, 0, 0)
+	addBall(model, "NoseTip", S(ctx, 0.09 * s, 0.07 * s, 0.12 * s), skin, fabric, transp, P(ctx, fwd + 0.035 * s, up - 0.08 * s, 0), ctx.heading, 0, 0, 0)
 	-- Blush: two soft rose cheek steps under the outer eye corners.
 	for _, side in ipairs({ -1, 1 }) do
 		addBall(
 			model,
 			if side < 0 then "BlushL" else "BlushR",
-			S(ctx, 0.10 * s, 0.07 * s, 0.04 * s),
+			S(ctx, 0.10 * s, 0.07 * s, 0.10 * s),
 			Color3.fromRGB(235, 120, 130),
 			plastic,
 			0,
@@ -779,18 +789,18 @@ local function addFace(ctx: Ctx, fwd: number, up: number, s: number, skin: Color
 	local mouthColor = Color3.fromRGB(90, 30, 30)
 	if style == "open" then
 		-- Open mouth: dark oval + pink tongue peeking out below.
-		addBall(model, "Mouth", S(ctx, 0.16 * s, 0.12 * s, 0.05 * s), Color3.fromRGB(70, 20, 25), plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.20 * s, 0), ctx.heading, 0, 0, 0)
-		addBall(model, "Tongue", S(ctx, 0.09 * s, 0.06 * s, 0.04 * s), Color3.fromRGB(235, 120, 140), plastic, 0, P(ctx, fwd + 0.025 * s, up - 0.24 * s, 0), ctx.heading, 0, 0, 0)
+		addBall(model, "Mouth", S(ctx, 0.16 * s, 0.12 * s, 0.12 * s), Color3.fromRGB(70, 20, 25), plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.20 * s, 0), ctx.heading, 0, 0, 0)
+		addBall(model, "Tongue", S(ctx, 0.09 * s, 0.06 * s, 0.10 * s), Color3.fromRGB(235, 120, 140), plastic, 0, P(ctx, fwd + 0.025 * s, up - 0.24 * s, 0), ctx.heading, 0, 0, 0)
 	elseif style == "smirk" then
 		-- Smirk: thin bar tilted up on one side, corners uneven.
-		addBall(model, "Mouth", S(ctx, 0.15 * s, 0.035 * s, 0.04 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.015 * s, up - 0.19 * s, 0), ctx.heading, 0, 0, 0.18)
-		addBall(model, "MouthCornerL", S(ctx, 0.04 * s, 0.04 * s, 0.04 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.16 * s, -0.085 * s), ctx.heading, 0, 0, 0)
-		addBall(model, "MouthCornerR", S(ctx, 0.04 * s, 0.04 * s, 0.04 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.21 * s, 0.085 * s), ctx.heading, 0, 0, 0)
+		addBall(model, "Mouth", S(ctx, 0.15 * s, 0.035 * s, 0.12 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.015 * s, up - 0.19 * s, 0), ctx.heading, 0, 0, 0.18)
+		addBall(model, "MouthCornerL", S(ctx, 0.04 * s, 0.04 * s, 0.10 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.16 * s, -0.085 * s), ctx.heading, 0, 0, 0)
+		addBall(model, "MouthCornerR", S(ctx, 0.04 * s, 0.04 * s, 0.10 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.21 * s, 0.085 * s), ctx.heading, 0, 0, 0)
 	else
 		-- Thin smile: centre bar + two corners lifted a touch.
-		addBall(model, "Mouth", S(ctx, 0.15 * s, 0.035 * s, 0.04 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.015 * s, up - 0.19 * s, 0), ctx.heading, 0, 0, 0)
-		addBall(model, "MouthCornerL", S(ctx, 0.04 * s, 0.04 * s, 0.04 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.175 * s, -0.085 * s), ctx.heading, 0, 0, 0)
-		addBall(model, "MouthCornerR", S(ctx, 0.04 * s, 0.04 * s, 0.04 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.175 * s, 0.085 * s), ctx.heading, 0, 0, 0)
+		addBall(model, "Mouth", S(ctx, 0.15 * s, 0.035 * s, 0.12 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.015 * s, up - 0.19 * s, 0), ctx.heading, 0, 0, 0)
+		addBall(model, "MouthCornerL", S(ctx, 0.04 * s, 0.04 * s, 0.10 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.175 * s, -0.085 * s), ctx.heading, 0, 0, 0)
+		addBall(model, "MouthCornerR", S(ctx, 0.04 * s, 0.04 * s, 0.10 * s), mouthColor, plastic, 0, P(ctx, fwd + 0.01 * s, up - 0.175 * s, 0.085 * s), ctx.heading, 0, 0, 0)
 	end
 end
 
@@ -816,7 +826,7 @@ local function foodFry(ctx: Ctx)
 	-- Five yellow fries fanning out of the top.
 	for i, x in ipairs({ -0.28, -0.14, 0, 0.14, 0.28 }) do
 		local tilt = (i - 3) * 0.22
-		addBox(model, "FryStick" .. tostring(i), S(ctx, 0.09, 0.55, 0.05), Color3.fromRGB(240, 210, 90), fabric, 0, P(ctx, 0, 0.95, x), ctx.heading, 0, 0, tilt)
+		addBox(model, "FryStick" .. tostring(i), S(ctx, 0.11, 0.55, 0.05), Color3.fromRGB(240, 210, 90), fabric, 0, P(ctx, 0, 0.95, x), ctx.heading, 0, 0, tilt)
 	end
 	-- Ketchup drips on the box front, clear of the face.
 	addBall(model, "Ketchup1", S(ctx, 0.06, 0.06, 0.06), Color3.fromRGB(220, 40, 40), plastic, 0, P(ctx, 0.29, 0.60, -0.28), ctx.heading, 0, 0, 0)
@@ -830,17 +840,17 @@ local function foodNed(ctx: Ctx)
 	local fabric = mat("Fabric")
 	local plastic = mat("SmoothPlastic")
 	-- Noodle bowl — the body. Front at fwd 0.475.
-	addCyl(model, "Body", 0.55, 0.95, ctx.body, fabric, ctx.bodyTransp, P(ctx, 0, 0.30, 0), ctx.heading, "Y", 0)
+	addCyl(model, "Body", 0.55, 0.95, ctx.u, ctx.body, fabric, ctx.bodyTransp, P(ctx, 0, 0.30, 0), ctx.heading, "Y", 0)
 	-- White rim + golden broth surface.
-	addCyl(model, "BowlRim", 0.08, 0.98, Color3.fromRGB(245, 245, 240), fabric, 0, P(ctx, 0, 0.56, 0), ctx.heading, "Y", 0)
-	addCyl(model, "Broth", 0.05, 0.82, Color3.fromRGB(240, 180, 80), plastic, 0, P(ctx, 0, 0.58, 0), ctx.heading, "Y", 0)
+	addCyl(model, "BowlRim", 0.08, 0.98, ctx.u, Color3.fromRGB(245, 245, 240), fabric, 0, P(ctx, 0, 0.56, 0), ctx.heading, "Y", 0)
+	addCyl(model, "Broth", 0.05, 0.82, ctx.u, Color3.fromRGB(240, 180, 80), plastic, 0, P(ctx, 0, 0.58, 0), ctx.heading, "Y", 0)
 	-- Noodle swirls piled on the broth.
 	addBall(model, "NoodleSwirl1", S(ctx, 0.38, 0.12, 0.38), Color3.fromRGB(250, 220, 150), fabric, 0, P(ctx, 0.12, 0.66, -0.15), ctx.heading, 0, 0, 0)
 	addBall(model, "NoodleSwirl2", S(ctx, 0.38, 0.12, 0.38), Color3.fromRGB(235, 200, 120), fabric, 0, P(ctx, -0.10, 0.67, 0.15), ctx.heading, 0, 0, 0)
 	addBall(model, "NoodleSwirl3", S(ctx, 0.34, 0.12, 0.34), Color3.fromRGB(250, 220, 150), fabric, 0, P(ctx, 0.05, 0.66, 0.28), ctx.heading, 0, 0, 0)
 	-- Chopsticks crossed above the bowl.
-	addCyl(model, "ChopstickL", 0.85, 0.04, Color3.fromRGB(170, 120, 70), fabric, 0, P(ctx, 0.05, 0.95, -0.05), ctx.heading, "X", 0.25)
-	addCyl(model, "ChopstickR", 0.85, 0.04, Color3.fromRGB(170, 120, 70), fabric, 0, P(ctx, 0.05, 0.95, 0.05), ctx.heading, "X", -0.25)
+	addCyl(model, "ChopstickL", 0.85, 0.04, ctx.u, Color3.fromRGB(170, 120, 70), fabric, 0, P(ctx, 0.05, 0.95, -0.05), ctx.heading, "X", 0.25)
+	addCyl(model, "ChopstickR", 0.85, 0.04, ctx.u, Color3.fromRGB(170, 120, 70), fabric, 0, P(ctx, 0.05, 0.95, 0.05), ctx.heading, "X", -0.25)
 	-- Steam wisps off the hot noodles.
 	addBall(model, "Steam1", S(ctx, 0.09, 0.09, 0.09), Color3.fromRGB(235, 235, 235), plastic, 0.5, P(ctx, 0.05, 1.15, -0.08), ctx.heading, 0, 0, 0)
 	addBall(model, "Steam2", S(ctx, 0.09, 0.09, 0.09), Color3.fromRGB(235, 235, 235), plastic, 0.5, P(ctx, 0.05, 1.30, 0.08), ctx.heading, 0, 0, 0)
@@ -851,8 +861,11 @@ end
 local function foodDumpling(ctx: Ctx)
 	local model = ctx.model
 	local fabric = mat("Fabric")
+	local plastic = mat("SmoothPlastic")
 	-- Crescent dumpling, wider than tall — the body, tilted a touch.
-	addBall(model, "Body", S(ctx, 1.05, 0.55, 0.60), ctx.body, fabric, ctx.bodyTransp, P(ctx, 0, 0.30, 0), ctx.heading, 0, 0, 0.06)
+	-- SmoothPlastic (not Fabric): the specular cue is what makes the
+	-- curved crescent read as a dome in Roblox instead of a flat slab.
+	addBall(model, "Body", S(ctx, 1.05, 0.55, 0.60), ctx.body, plastic, ctx.bodyTransp, P(ctx, 0, 0.30, 0), ctx.heading, 0, 0, 0.06)
 	-- Pleated ridge along the top edge.
 	for i, x in ipairs({ -0.35, -0.175, 0, 0.175, 0.35 }) do
 		addBall(model, "Pleat" .. tostring(i), S(ctx, 0.10, 0.09, 0.09), Color3.fromRGB(240, 220, 170), fabric, 0, P(ctx, 0.06, 0.54, x), ctx.heading, 0, 0, 0)
@@ -860,7 +873,7 @@ local function foodDumpling(ctx: Ctx)
 	-- Two chive bits on the ridge for a colour pop.
 	addBall(model, "Chive1", S(ctx, 0.05, 0.05, 0.05), Color3.fromRGB(90, 170, 70), fabric, 0, P(ctx, 0.08, 0.56, -0.26), ctx.heading, 0, 0, 0)
 	addBall(model, "Chive2", S(ctx, 0.05, 0.05, 0.05), Color3.fromRGB(90, 170, 70), fabric, 0, P(ctx, 0.08, 0.56, 0.26), ctx.heading, 0, 0, 0)
-	addFace(ctx, 0.28, 0.31, 0.85, ctx.body, ctx.bodyLo)
+	addFace(ctx, 0.30, 0.31, 0.85, ctx.body, ctx.bodyLo)
 	addGem(ctx, 0.22, 0.10)
 end
 
@@ -869,7 +882,8 @@ local function foodTaco(ctx: Ctx)
 	local fabric = mat("Fabric")
 	local plastic = mat("SmoothPlastic")
 	-- Hard taco shell, wide flat half-moon — the body. Front at fwd ~0.24.
-	addBall(model, "Body", S(ctx, 1.08, 0.62, 0.48), ctx.body, fabric, ctx.bodyTransp, P(ctx, 0, 0.35, 0), ctx.heading, 0, 0, 0)
+	-- SmoothPlastic so the shell's curve reads in Roblox light.
+	addBall(model, "Body", S(ctx, 1.08, 0.62, 0.48), ctx.body, plastic, ctx.bodyTransp, P(ctx, 0, 0.35, 0), ctx.heading, 0, 0, 0)
 	-- Filling mounded along the top edge, spilling over the front.
 	for i, x in ipairs({ -0.30, 0, 0.30 }) do
 		addBall(model, "Lettuce" .. tostring(i), S(ctx, 0.18, 0.11, 0.15), Color3.fromRGB(90, 180, 70), fabric, 0, P(ctx, 0.04, 0.64, x), ctx.heading, 0, 0, 0)
@@ -883,7 +897,7 @@ local function foodTaco(ctx: Ctx)
 	addBall(model, "LettuceFront2", S(ctx, 0.12, 0.08, 0.10), Color3.fromRGB(90, 180, 70), fabric, 0, P(ctx, 0.18, 0.58, 0.28), ctx.heading, 0, 0, 0)
 	-- Hot-sauce drip on the shell front, clear of the face.
 	addBall(model, "SauceDrip", S(ctx, 0.06, 0.06, 0.06), Color3.fromRGB(200, 40, 25), plastic, 0, P(ctx, 0.16, 0.52, -0.32), ctx.heading, 0, 0, 0)
-	addFace(ctx, 0.23, 0.36, 0.85, ctx.body, ctx.bodyLo)
+	addFace(ctx, 0.24, 0.36, 0.85, ctx.body, ctx.bodyLo)
 	addGem(ctx, 0.20, 0.13)
 end
 
@@ -921,13 +935,13 @@ local function foodQueso(ctx: Ctx)
 	-- Cheese holes: darker orange, on the front corners (clear of the
 	-- face) and one on the side.
 	local holeColor = Color3.fromRGB(230, 150, 0)
-	addBall(model, "CheeseHole1", S(ctx, 0.10, 0.08, 0.04), holeColor, plastic, 0, P(ctx, 0.31, 0.10, -0.30), ctx.heading, 0, 0, 0)
-	addBall(model, "CheeseHole2", S(ctx, 0.10, 0.08, 0.04), holeColor, plastic, 0, P(ctx, 0.31, 0.58, 0.30), ctx.heading, 0, 0, 0)
-	addBall(model, "CheeseHole3", S(ctx, 0.10, 0.08, 0.04), holeColor, plastic, 0, P(ctx, 0.31, 0.08, 0.30), ctx.heading, 0, 0, 0)
-	addBall(model, "CheeseHole4", S(ctx, 0.10, 0.08, 0.04), holeColor, plastic, 0, P(ctx, 0.31, 0.60, -0.30), ctx.heading, 0, 0, 0)
-	addBall(model, "CheeseHoleSide", S(ctx, 0.04, 0.10, 0.10), holeColor, plastic, 0, P(ctx, 0, 0.35, 0.41), ctx.heading, 0, 0, 0)
+	addBall(model, "CheeseHole1", S(ctx, 0.10, 0.08, 0.06), holeColor, plastic, 0, P(ctx, 0.31, 0.10, -0.30), ctx.heading, 0, 0, 0)
+	addBall(model, "CheeseHole2", S(ctx, 0.10, 0.08, 0.06), holeColor, plastic, 0, P(ctx, 0.31, 0.58, 0.30), ctx.heading, 0, 0, 0)
+	addBall(model, "CheeseHole3", S(ctx, 0.10, 0.08, 0.06), holeColor, plastic, 0, P(ctx, 0.31, 0.08, 0.30), ctx.heading, 0, 0, 0)
+	addBall(model, "CheeseHole4", S(ctx, 0.10, 0.08, 0.06), holeColor, plastic, 0, P(ctx, 0.31, 0.60, -0.30), ctx.heading, 0, 0, 0)
+	addBall(model, "CheeseHoleSide", S(ctx, 0.06, 0.10, 0.10), holeColor, plastic, 0, P(ctx, 0, 0.35, 0.41), ctx.heading, 0, 0, 0)
 	-- Small gold crown on top (the queen), kept small so the cheese read wins.
-	addCyl(model, "CrownBand", 0.08, 0.50, Color3.fromRGB(230, 190, 80), metal, 0, P(ctx, -0.05, 0.78, 0), ctx.heading, "Y", 0)
+	addCyl(model, "CrownBand", 0.08, 0.50, ctx.u, Color3.fromRGB(230, 190, 80), metal, 0, P(ctx, -0.05, 0.78, 0), ctx.heading, "Y", 0)
 	for i, x in ipairs({ -0.15, 0, 0.15 }) do
 		addBall(model, "CrownSpike" .. tostring(i), S(ctx, 0.06, 0.06, 0.06), Color3.fromRGB(230, 190, 80), metal, 0, P(ctx, -0.05, 0.86, x), ctx.heading, 0, 0, 0)
 	end
@@ -941,7 +955,7 @@ local function foodKebab(ctx: Ctx)
 	local plastic = mat("SmoothPlastic")
 	local metal = mat("Metal")
 	-- Metal skewer through the whole stack.
-	addCyl(model, "Skewer", 1.45, 0.06, Color3.fromRGB(180, 180, 180), metal, 0, P(ctx, 0, 0.725, 0), ctx.heading, "Y", 0)
+	addCyl(model, "Skewer", 1.45, 0.09, ctx.u, Color3.fromRGB(180, 180, 180), metal, 0, P(ctx, 0, 0.725, 0), ctx.heading, "Y", 0)
 	addBall(model, "SkewerTip", S(ctx, 0.09, 0.09, 0.09), Color3.fromRGB(180, 180, 180), metal, 0, P(ctx, 0, 1.48, 0), ctx.heading, 0, 0, 0)
 	-- Chunks on the skewer: meat / tomato / BIG MEAT / onion.
 	addBox(model, "MeatChunk1", S(ctx, 0.58, 0.30, 0.58), Color3.fromRGB(150, 80, 50), fabric, 0, P(ctx, 0, 0.15, 0), ctx.heading, 0, 0, 0)
@@ -963,18 +977,20 @@ local function foodBurger(ctx: Ctx)
 	local plastic = mat("SmoothPlastic")
 	-- The stack, bottom to top: bun / patty / cheese / lettuce / tomato /
 	-- TOP BUN (the main mass, "Body"). Face sits on the top bun's front.
-	addCyl(model, "BottomBun", 0.16, 0.95, Color3.fromRGB(205, 140, 70), fabric, 0, P(ctx, 0, 0.10, 0), ctx.heading, "Y", 0)
-	addCyl(model, "Patty", 0.18, 1.00, Color3.fromRGB(120, 70, 40), fabric, 0, P(ctx, 0, 0.27, 0), ctx.heading, "Y", 0)
+	addCyl(model, "BottomBun", 0.16, 0.95, ctx.u, Color3.fromRGB(218, 155, 85), fabric, 0, P(ctx, 0, 0.10, 0), ctx.heading, "Y", 0)
+	addCyl(model, "Patty", 0.18, 1.00, ctx.u, Color3.fromRGB(120, 70, 40), fabric, 0, P(ctx, 0, 0.27, 0), ctx.heading, "Y", 0)
 	addBox(model, "CheeseSlice", S(ctx, 1.05, 0.08, 1.05), Color3.fromRGB(250, 200, 50), plastic, 0, P(ctx, 0, 0.40, 0), ctx.heading, 0, 0.785, 0)
 	addBall(model, "Lettuce", S(ctx, 1.00, 0.10, 1.00), Color3.fromRGB(90, 180, 70), fabric, 0, P(ctx, 0, 0.48, 0), ctx.heading, 0, 0, 0)
-	addCyl(model, "TomatoSlice", 0.10, 0.90, Color3.fromRGB(220, 60, 40), plastic, 0, P(ctx, 0, 0.56, 0), ctx.heading, "Y", 0)
-	addBall(model, "Body", S(ctx, 0.95, 0.45, 0.95), ctx.body, fabric, ctx.bodyTransp, P(ctx, 0, 0.80, 0), ctx.heading, 0, 0, 0)
-	-- Sesame seeds on the dome.
-	addBall(model, "Sesame1", S(ctx, 0.05, 0.05, 0.05), Color3.fromRGB(240, 235, 200), plastic, 0, P(ctx, 0.10, 1.00, -0.20), ctx.heading, 0, 0, 0)
-	addBall(model, "Sesame2", S(ctx, 0.05, 0.05, 0.05), Color3.fromRGB(240, 235, 200), plastic, 0, P(ctx, -0.05, 1.02, 0.05), ctx.heading, 0, 0, 0)
-	addBall(model, "Sesame3", S(ctx, 0.05, 0.05, 0.05), Color3.fromRGB(240, 235, 200), plastic, 0, P(ctx, 0.15, 0.98, 0.22), ctx.heading, 0, 0, 0)
-	addBall(model, "Sesame4", S(ctx, 0.05, 0.05, 0.05), Color3.fromRGB(240, 235, 200), plastic, 0, P(ctx, -0.15, 0.99, -0.05), ctx.heading, 0, 0, 0)
-	addFace(ctx, 0.46, 0.80, 0.80, ctx.body, ctx.bodyLo)
+	addCyl(model, "TomatoSlice", 0.10, 0.90, ctx.u, Color3.fromRGB(220, 60, 40), plastic, 0, P(ctx, 0, 0.56, 0), ctx.heading, "Y", 0)
+	-- Taller dome (0.55, was 0.45) in SmoothPlastic: the specular cue is
+	-- what makes the bun read as a dome in Roblox instead of a flat box.
+	addBall(model, "Body", S(ctx, 0.95, 0.55, 0.95), ctx.body, plastic, ctx.bodyTransp, P(ctx, 0, 0.80, 0), ctx.heading, 0, 0, 0)
+	-- Sesame seeds on the dome, bigger so they read at game distance.
+	addBall(model, "Sesame1", S(ctx, 0.07, 0.07, 0.07), Color3.fromRGB(240, 235, 200), plastic, 0, P(ctx, 0.10, 1.00, -0.20), ctx.heading, 0, 0, 0)
+	addBall(model, "Sesame2", S(ctx, 0.07, 0.07, 0.07), Color3.fromRGB(240, 235, 200), plastic, 0, P(ctx, -0.05, 1.02, 0.05), ctx.heading, 0, 0, 0)
+	addBall(model, "Sesame3", S(ctx, 0.07, 0.07, 0.07), Color3.fromRGB(240, 235, 200), plastic, 0, P(ctx, 0.15, 0.98, 0.22), ctx.heading, 0, 0, 0)
+	addBall(model, "Sesame4", S(ctx, 0.07, 0.07, 0.07), Color3.fromRGB(240, 235, 200), plastic, 0, P(ctx, -0.15, 0.99, -0.05), ctx.heading, 0, 0, 0)
+	addFace(ctx, 0.475, 0.80, 0.80, ctx.body, ctx.bodyLo)
 	addGem(ctx, 0.47, 0.60)
 end
 
@@ -983,10 +999,10 @@ local function foodRamen(ctx: Ctx)
 	local fabric = mat("Fabric")
 	local plastic = mat("SmoothPlastic")
 	-- Ramen bowl — the body. Front at fwd 0.525.
-	addCyl(model, "Body", 0.60, 1.05, ctx.body, fabric, ctx.bodyTransp, P(ctx, 0, 0.32, 0), ctx.heading, "Y", 0)
+	addCyl(model, "Body", 0.60, 1.05, ctx.u, ctx.body, fabric, ctx.bodyTransp, P(ctx, 0, 0.32, 0), ctx.heading, "Y", 0)
 	-- Gold rim + golden broth surface.
-	addCyl(model, "BowlRim", 0.08, 1.08, Color3.fromRGB(230, 190, 80), mat("Metal"), 0, P(ctx, 0, 0.60, 0), ctx.heading, "Y", 0)
-	addCyl(model, "Broth", 0.05, 0.90, Color3.fromRGB(240, 180, 80), plastic, 0, P(ctx, 0, 0.62, 0), ctx.heading, "Y", 0)
+	addCyl(model, "BowlRim", 0.08, 1.08, ctx.u, Color3.fromRGB(230, 190, 80), mat("Metal"), 0, P(ctx, 0, 0.60, 0), ctx.heading, "Y", 0)
+	addCyl(model, "Broth", 0.05, 0.90, ctx.u, Color3.fromRGB(240, 180, 80), plastic, 0, P(ctx, 0, 0.62, 0), ctx.heading, "Y", 0)
 	-- Noodle swirls on the broth.
 	addBall(model, "NoodleSwirl1", S(ctx, 0.38, 0.12, 0.38), Color3.fromRGB(250, 220, 150), fabric, 0, P(ctx, 0.12, 0.70, -0.15), ctx.heading, 0, 0, 0)
 	addBall(model, "NoodleSwirl2", S(ctx, 0.38, 0.12, 0.38), Color3.fromRGB(235, 200, 120), fabric, 0, P(ctx, -0.12, 0.70, 0.15), ctx.heading, 0, 0, 0)
@@ -994,12 +1010,12 @@ local function foodRamen(ctx: Ctx)
 	-- Soft egg (white + yolk) and narutomaki (white + pink swirl).
 	addBall(model, "Egg", S(ctx, 0.24, 0.18, 0.24), Color3.fromRGB(245, 245, 240), plastic, 0, P(ctx, -0.05, 0.72, 0.28), ctx.heading, 0, 0, 0)
 	addBall(model, "EggYolk", S(ctx, 0.11, 0.11, 0.11), Color3.fromRGB(250, 180, 40), plastic, 0, P(ctx, 0.06, 0.76, 0.28), ctx.heading, 0, 0, 0)
-	addCyl(model, "Narutomaki", 0.06, 0.20, Color3.fromRGB(245, 245, 240), plastic, 0, P(ctx, 0.10, 0.70, -0.30), ctx.heading, "Y", 0)
+	addCyl(model, "Narutomaki", 0.06, 0.20, ctx.u, Color3.fromRGB(245, 245, 240), plastic, 0, P(ctx, 0.10, 0.70, -0.30), ctx.heading, "Y", 0)
 	addBall(model, "NarutoSwirl", S(ctx, 0.07, 0.07, 0.07), Color3.fromRGB(250, 150, 180), plastic, 0, P(ctx, 0.10, 0.74, -0.30), ctx.heading, 0, 0, 0)
 	-- Nori sheet at the back + chopsticks crossed above.
 	addBox(model, "Nori", S(ctx, 0.25, 0.32, 0.03), Color3.fromRGB(30, 60, 35), fabric, 0, P(ctx, -0.28, 0.80, 0.05), ctx.heading, 0, 0, 0.1)
-	addCyl(model, "ChopstickL", 0.90, 0.04, Color3.fromRGB(170, 120, 70), fabric, 0, P(ctx, 0.05, 1.05, -0.05), ctx.heading, "X", 0.25)
-	addCyl(model, "ChopstickR", 0.90, 0.04, Color3.fromRGB(170, 120, 70), fabric, 0, P(ctx, 0.05, 1.05, 0.05), ctx.heading, "X", -0.25)
+	addCyl(model, "ChopstickL", 0.90, 0.04, ctx.u, Color3.fromRGB(170, 120, 70), fabric, 0, P(ctx, 0.05, 1.05, -0.05), ctx.heading, "X", 0.25)
+	addCyl(model, "ChopstickR", 0.90, 0.04, ctx.u, Color3.fromRGB(170, 120, 70), fabric, 0, P(ctx, 0.05, 1.05, 0.05), ctx.heading, "X", -0.25)
 	-- Steam wisps off the hot broth.
 	addBall(model, "Steam1", S(ctx, 0.09, 0.09, 0.09), Color3.fromRGB(235, 235, 235), plastic, 0.5, P(ctx, 0.05, 1.25, -0.08), ctx.heading, 0, 0, 0)
 	addBall(model, "Steam2", S(ctx, 0.09, 0.09, 0.09), Color3.fromRGB(235, 235, 235), plastic, 0.5, P(ctx, 0.05, 1.40, 0.08), ctx.heading, 0, 0, 0)
@@ -1051,17 +1067,11 @@ function CharacterFactory.buildSnack(
 	assert(build ~= nil, "CharacterFactory.buildSnack: no food builder for " .. def.key)
 	build(ctx)
 
-	-- Rarity disc under the feet (Neon, 0.35 transparency).
-	local disc = Instance.new("Part")
-	disc.Name = "Disc"
-	disc.Size = Vector3.new(def.size * 1.25, 0.12, def.size * 1.25)
-	disc.Color = ctx.rarity
-	disc.Transparency = 0.35
-	disc.Anchored = true
-	disc.CanCollide = false
-	disc.Material = Enum.Material.Neon
-	disc.Position = groundPos + Vector3.new(0, 0.07, 0)
-	disc.Parent = model
+	-- Rarity disc under the feet (Neon, 0.35 transparency). A ROUND
+	-- cylinder, like the preview shows — the old square box read as a
+	-- flat "pink platform" in Roblox. Radius 0.85u, height 0.06u, centre
+	-- 0.03u up so its bottom sits exactly on the ground.
+	local disc = addCyl(model, "Disc", 0.06, 1.70, ctx.u, ctx.rarity, mat("Neon"), 0.35, P(ctx, 0, 0.03, 0), ctx.heading, "Y", 0)
 
 	-- Floating label above the snack. labelTier staggers the caption
 	-- height (0/1/2 -> +0/+1.6/+3.2 studs) so two walkers bunched up
@@ -2661,11 +2671,20 @@ for _, def in ipairs(Config.SNACKS) do
 	check("factory: " .. def.key .. " part count <= 60", parts <= 60, tostring(parts))
 	check("factory: " .. def.key .. " part count >= 8", parts >= 8, tostring(parts))
 	-- Every part sits on or above the ground point.
+	-- NOTE: for a Cylinder, Size.Y is the DIAMETER, not the vertical
+	-- extent — the length rides on Size.X. The vertical half-extent is
+	-- min(Size.X, Size.Y)/2, exact for an upright cylinder whose length
+	-- is the smaller side (discs, bowls, buns) and a safe under-estimate
+	-- for a long thin one (the skewer: its true bottom is the ground).
 	local allAbove = true
 	local lowest = 1e9
 	for _, d in ipairs(model:GetDescendants()) do
 		if d:IsA("BasePart") then
-			local bottom = d.Position.Y - d.Size.Y / 2
+			local halfY = d.Size.Y / 2
+			if d.Shape == Enum.PartType.Cylinder then
+				halfY = math.min(d.Size.X, d.Size.Y) / 2
+			end
+			local bottom = d.Position.Y - halfY
 			if bottom < lowest then
 				lowest = bottom
 			end
@@ -2715,7 +2734,52 @@ for _, def in ipairs(Config.SNACKS) do
 		local c = bodyPart.Color
 		check("factory: queen_queso Body is yellow", c.R > 0.8 and c.G > 0.7 and c.B < 0.3, tostring(c.R) .. "," .. tostring(c.G) .. "," .. tostring(c.B))
 	end
+	-- FACE RELIEF (brown-box fix): the eye whites must be bold googly
+	-- relief, not a thin decal. Old code protruded only ~0.015*s (eye
+	-- whites ~0.05 studs, invisible at game distance / z-fighting); the
+	-- new face sits ~0.05*s proud of the body front. Heading is 0 here,
+	-- so forward is +Z: the eye front must clear the Body front.
+	if eyeL ~= nil and bodyPart ~= nil then
+		local eyeFront = eyeL.Position.Z + eyeL.Size.Z / 2
+		local bodyFront = bodyPart.Position.Z + bodyPart.Size.Z / 2
+		local protrusion = eyeFront - bodyFront
+		-- Lasagna's face sits on the pasta layer, but the cheese-top
+		-- Body overhangs it by 0.025u, so its bar is lower.
+		local bar = 0.03 * def.size
+		if def.key == "lord_lasagna" then
+			bar = 0.015 * def.size
+		end
+		check("factory: " .. def.key .. " eye protrudes past body", protrusion >= bar, "protrusion=" .. tostring(protrusion) .. " bar=" .. tostring(bar))
+		check("factory: " .. def.key .. " eye is deep (googly, not decal)", eyeL.Size.Z >= 0.10 * def.size, "eyeZ=" .. tostring(eyeL.Size.Z))
+	end
+	-- RARITY DISC is a ROUND cylinder (radius 0.85u, height 0.06u),
+	-- like the preview — not the old square box that read as a flat
+	-- "pink platform".
+	local disc = model:FindFirstChild("Disc")
+	if disc ~= nil then
+		check("factory: " .. def.key .. " disc is a cylinder", disc.Shape == Enum.PartType.Cylinder)
+		check("factory: " .. def.key .. " disc height 0.06u", math.abs(disc.Size.X - 0.06 * def.size) < 0.01, "discX=" .. tostring(disc.Size.X))
+		check("factory: " .. def.key .. " disc diameter 1.70u", math.abs(disc.Size.Y - 1.70 * def.size) < 0.01, "discY=" .. tostring(disc.Size.Y))
+	end
 end
+
+-- CYLINDER U-SCALE (brown-box fix): addCyl used to build cylinders at
+-- 0.05-1.45 STUDS instead of 0.05u-1.45u, so bowls/buns were microscopic
+-- in Roblox while the preview showed them u-scaled. Assert the real
+-- u-scaled sizes.
+local ramenDef = Config.lookupSnack("eternal_ramen")
+local ramenModel = CharacterFactory.buildSnack(ramenDef, "None", Vector3.new(0, 2, 0), 0, world)
+local ramenBody = ramenModel:FindFirstChild("Body")
+check("factory: ramen bowl length 0.60u", ramenBody ~= nil and math.abs(ramenBody.Size.X - 0.60 * ramenDef.size) < 0.01, ramenBody and tostring(ramenBody.Size.X) or "no body")
+check("factory: ramen bowl diameter 1.05u", ramenBody ~= nil and math.abs(ramenBody.Size.Y - 1.05 * ramenDef.size) < 0.01, ramenBody and tostring(ramenBody.Size.Y) or "no body")
+local burgerDef = Config.lookupSnack("baron_burger")
+local burgerModel = CharacterFactory.buildSnack(burgerDef, "None", Vector3.new(0, 2, 0), 0, world)
+local patty = burgerModel:FindFirstChild("Patty")
+check("factory: burger patty diameter 1.00u", patty ~= nil and math.abs(patty.Size.Y - 1.00 * burgerDef.size) < 0.01, patty and tostring(patty.Size.Y) or "no patty")
+local kebabDef = Config.lookupSnack("king_kebab")
+local kebabModel = CharacterFactory.buildSnack(kebabDef, "None", Vector3.new(0, 2, 0), 0, world)
+local skewer = kebabModel:FindFirstChild("Skewer")
+check("factory: kebab skewer length 1.45u", skewer ~= nil and math.abs(skewer.Size.X - 1.45 * kebabDef.size) < 0.01, skewer and tostring(skewer.Size.X) or "no skewer")
 
 -- Heading: with heading PI/2 the face should point along +X.
 local ramen = Config.lookupSnack("eternal_ramen")

@@ -21,15 +21,15 @@
 // Data transcribed from src/shared/Config.luau + the v2 CharacterFactory.
 
 const SNACKS = [
-  { key:'soggy_fry',       name:'Soggy Fry',        rarity:'Common',    rate:1,   price:50,    color:[255,196,66],  food:[210,40,40],   size:3.3, iris:[90,55,20],   mouth:'smile' },
-  { key:'noodle_ned',      name:'Noodle Ned',       rarity:'Common',    rate:2,   price:100,   color:[255,214,130], food:[205,60,55],   size:3.6, iris:[70,45,25],   mouth:'smile' },
+  { key:'soggy_fry',       name:'Soggy Fry',        rarity:'Common',    rate:1,   price:50,    color:[255,196,66],  food:[225,55,50],    size:3.3, iris:[90,55,20],   mouth:'smile' },
+  { key:'noodle_ned',      name:'Noodle Ned',       rarity:'Common',    rate:2,   price:100,   color:[255,214,130], food:[220,75,65],    size:3.6, iris:[70,45,25],   mouth:'smile' },
   { key:'dancing_dumpling',name:'Dancing Dumpling', rarity:'Rare',      rate:5,   price:300,   color:[255,240,200], food:[255,240,200], size:3.9, iris:[40,80,160],  mouth:'open'  },
   { key:'turbo_taco',      name:'Turbo Taco',       rarity:'Rare',      rate:8,   price:500,   color:[255,170,40],  food:[235,160,40],  size:4.2, iris:[50,120,50],  mouth:'smirk' },
   { key:'lord_lasagna',    name:'Lord Lasagna',     rarity:'Epic',      rate:15,  price:1500,  color:[230,120,60],  food:[245,200,70],  size:4.5, iris:[110,60,20],  mouth:'smile' },
   { key:'queen_queso',     name:'Queen Queso',      rarity:'Epic',      rate:20,  price:2500,  color:[255,215,0],   food:[255,215,0],  size:4.8, iris:[120,60,160], mouth:'smile' },
-  { key:'king_kebab',      name:'King Kebab',       rarity:'Legendary', rate:40,  price:6000,  color:[180,60,60],   food:[165,90,55],   size:5.1, iris:[170,110,20], mouth:'smile' },
-  { key:'baron_burger',    name:'Baron Burger',     rarity:'Legendary', rate:60,  price:10000, color:[150,90,40],   food:[215,155,80],  size:5.4, iris:[80,50,25],   mouth:'smile' },
-  { key:'eternal_ramen',   name:'The Eternal Ramen',rarity:'Mythic',    rate:120, price:25000, color:[255,80,80],   food:[160,40,40],   size:6.0, iris:[160,40,30],  mouth:'smile' },
+  { key:'king_kebab',      name:'King Kebab',       rarity:'Legendary', rate:40,  price:6000,  color:[180,60,60],   food:[195,115,70],   size:5.1, iris:[170,110,20], mouth:'smile' },
+  { key:'baron_burger',    name:'Baron Burger',     rarity:'Legendary', rate:60,  price:10000, color:[150,90,40],   food:[238,192,105],  size:5.4, iris:[80,50,25],   mouth:'smile' },
+  { key:'eternal_ramen',   name:'The Eternal Ramen',rarity:'Mythic',    rate:120, price:25000, color:[255,80,80],   food:[205,65,60],    size:6.0, iris:[160,40,30],  mouth:'smile' },
 ];
 const RARITY = { Common:[180,180,180], Rare:[80,170,255], Epic:[180,90,255], Legendary:[255,170,0], Mythic:[255,60,120] };
 
@@ -120,36 +120,36 @@ function cyl(group, u, fwd, up, right, len, dia, color, kind, transp, axis, tilt
 // up = eye-line height, s = scale; local pattern measured from the centre)
 function addFace(g, u, fwd, up, s, skin, skinLo, bodyT, iris, mouth){
   // tapered brows, left a touch higher (asymmetry = life)
-  ball(g, u, fwd - 0.01*s, up + 0.21*s, -0.20*s, 0.17*s, 0.04*s, 0.05*s, rgb([60,35,20]), 'Fabric', 0, 0, 0, 0.16);
-  ball(g, u, fwd - 0.01*s, up + 0.19*s,  0.20*s, 0.17*s, 0.04*s, 0.05*s, rgb([60,35,20]), 'Fabric', 0, 0, 0, -0.08);
+  ball(g, u, fwd - 0.01*s, up + 0.21*s, -0.20*s, 0.17*s, 0.04*s, 0.12*s, rgb([60,35,20]), 'Fabric', 0, 0, 0, 0.16);
+  ball(g, u, fwd - 0.01*s, up + 0.19*s,  0.20*s, 0.17*s, 0.04*s, 0.12*s, rgb([60,35,20]), 'Fabric', 0, 0, 0, -0.08);
   for (const side of [-1, 1]){
     const x = side * 0.20 * s;
-    ball(g, u, fwd - 0.03*s, up + 0.05*s, x, 0.20*s, 0.27*s, 0.09*s, rgb([235,235,230]), 'SmoothPlastic'); // white
-    ball(g, u, fwd - 0.005*s, up + 0.04*s, x, 0.15*s, 0.21*s, 0.04*s, rgb([25,25,30]), 'SmoothPlastic');   // outline
-    ball(g, u, fwd + 0.005*s, up + 0.04*s, x, 0.13*s, 0.19*s, 0.05*s, rgb(iris), 'SmoothPlastic');         // iris
-    ball(g, u, fwd + 0.025*s, up + 0.04*s, x, 0.065*s, 0.09*s, 0.04*s, rgb([20,20,25]), 'SmoothPlastic');   // pupil
-    ball(g, u, fwd + 0.04*s, up + 0.10*s, x + side*0.035*s, 0.04*s, 0.05*s, 0.03*s, rgb([235,235,235]), 'SmoothPlastic'); // glint
-    ball(g, u, fwd, up + 0.15*s, x, 0.22*s, 0.09*s, 0.05*s, skin, 'Fabric', bodyT);                        // lid
+    ball(g, u, fwd - 0.03*s, up + 0.05*s, x, 0.20*s, 0.27*s, 0.16*s, rgb([235,235,230]), 'SmoothPlastic'); // white
+    ball(g, u, fwd - 0.005*s, up + 0.04*s, x, 0.15*s, 0.21*s, 0.11*s, rgb([25,25,30]), 'SmoothPlastic');   // outline
+    ball(g, u, fwd + 0.005*s, up + 0.04*s, x, 0.13*s, 0.19*s, 0.14*s, rgb(iris), 'SmoothPlastic');         // iris
+    ball(g, u, fwd + 0.025*s, up + 0.04*s, x, 0.065*s, 0.09*s, 0.13*s, rgb([20,20,25]), 'SmoothPlastic');   // pupil
+    ball(g, u, fwd + 0.04*s, up + 0.10*s, x + side*0.035*s, 0.04*s, 0.05*s, 0.12*s, rgb([235,235,235]), 'SmoothPlastic'); // glint
+    ball(g, u, fwd, up + 0.15*s, x, 0.22*s, 0.09*s, 0.10*s, skin, 'Fabric', bodyT);                        // lid
   }
   // modelled nose: bridge + tip (real side-view relief)
-  box(g, u, fwd + 0.015*s, up - 0.02*s, 0, 0.05*s, 0.12*s, 0.05*s, skinLo, 'Fabric', bodyT);
-  ball(g, u, fwd + 0.035*s, up - 0.08*s, 0, 0.09*s, 0.07*s, 0.08*s, skin, 'Fabric', bodyT);
+  box(g, u, fwd + 0.015*s, up - 0.02*s, 0, 0.05*s, 0.12*s, 0.12*s, skinLo, 'Fabric', bodyT);
+  ball(g, u, fwd + 0.035*s, up - 0.08*s, 0, 0.09*s, 0.07*s, 0.12*s, skin, 'Fabric', bodyT);
   // blush cheeks
-  ball(g, u, fwd - 0.01*s, up - 0.09*s, -0.27*s, 0.10*s, 0.07*s, 0.04*s, rgb([235,120,130]), 'SmoothPlastic');
-  ball(g, u, fwd - 0.01*s, up - 0.09*s,  0.27*s, 0.10*s, 0.07*s, 0.04*s, rgb([235,120,130]), 'SmoothPlastic');
+  ball(g, u, fwd - 0.01*s, up - 0.09*s, -0.27*s, 0.10*s, 0.07*s, 0.10*s, rgb([235,120,130]), 'SmoothPlastic');
+  ball(g, u, fwd - 0.01*s, up - 0.09*s,  0.27*s, 0.10*s, 0.07*s, 0.10*s, rgb([235,120,130]), 'SmoothPlastic');
   // mouth
   const mc = rgb([90,30,30]);
   if (mouth === 'open'){
-    ball(g, u, fwd + 0.01*s, up - 0.20*s, 0, 0.16*s, 0.12*s, 0.05*s, rgb([70,20,25]), 'SmoothPlastic');
-    ball(g, u, fwd + 0.025*s, up - 0.24*s, 0, 0.09*s, 0.06*s, 0.04*s, rgb([235,120,140]), 'SmoothPlastic');
+    ball(g, u, fwd + 0.01*s, up - 0.20*s, 0, 0.16*s, 0.12*s, 0.12*s, rgb([70,20,25]), 'SmoothPlastic');
+    ball(g, u, fwd + 0.025*s, up - 0.24*s, 0, 0.09*s, 0.06*s, 0.10*s, rgb([235,120,140]), 'SmoothPlastic');
   } else if (mouth === 'smirk'){
-    ball(g, u, fwd + 0.015*s, up - 0.19*s, 0, 0.15*s, 0.035*s, 0.04*s, mc, 'SmoothPlastic', 0, 0, 0, 0.18);
-    ball(g, u, fwd + 0.01*s, up - 0.16*s, -0.085*s, 0.04*s, 0.04*s, 0.04*s, mc, 'SmoothPlastic');
-    ball(g, u, fwd + 0.01*s, up - 0.21*s,  0.085*s, 0.04*s, 0.04*s, 0.04*s, mc, 'SmoothPlastic');
+    ball(g, u, fwd + 0.015*s, up - 0.19*s, 0, 0.15*s, 0.035*s, 0.12*s, mc, 'SmoothPlastic', 0, 0, 0, 0.18);
+    ball(g, u, fwd + 0.01*s, up - 0.16*s, -0.085*s, 0.04*s, 0.04*s, 0.10*s, mc, 'SmoothPlastic');
+    ball(g, u, fwd + 0.01*s, up - 0.21*s,  0.085*s, 0.04*s, 0.04*s, 0.10*s, mc, 'SmoothPlastic');
   } else {
-    ball(g, u, fwd + 0.015*s, up - 0.19*s, 0, 0.15*s, 0.035*s, 0.04*s, mc, 'SmoothPlastic');
-    ball(g, u, fwd + 0.01*s, up - 0.175*s, -0.085*s, 0.04*s, 0.04*s, 0.04*s, mc, 'SmoothPlastic');
-    ball(g, u, fwd + 0.01*s, up - 0.175*s,  0.085*s, 0.04*s, 0.04*s, 0.04*s, mc, 'SmoothPlastic');
+    ball(g, u, fwd + 0.015*s, up - 0.19*s, 0, 0.15*s, 0.035*s, 0.12*s, mc, 'SmoothPlastic');
+    ball(g, u, fwd + 0.01*s, up - 0.175*s, -0.085*s, 0.04*s, 0.04*s, 0.10*s, mc, 'SmoothPlastic');
+    ball(g, u, fwd + 0.01*s, up - 0.175*s,  0.085*s, 0.04*s, 0.04*s, 0.10*s, mc, 'SmoothPlastic');
   }
 }
 
@@ -165,7 +165,7 @@ const FOOD = {
     box(g, u, 0, 0.12, 0, 0.87, 0.10, 0.57, rgb([240,240,235]), 'Fabric'); // white stripe
     for (let i = 0; i < 5; i++){
       const x = [-0.28, -0.14, 0, 0.14, 0.28][i], tilt = (i - 2) * 0.22;
-      box(g, u, 0, 0.95, x, 0.09, 0.55, 0.05, rgb([240,210,90]), 'Fabric', 0, 0, 0, tilt);
+      box(g, u, 0, 0.95, x, 0.11, 0.55, 0.05, rgb([240,210,90]), 'Fabric', 0, 0, 0, tilt);
     }
     ball(g, u, 0.29, 0.60, -0.28, 0.06, 0.06, 0.06, rgb([220,40,40]), 'SmoothPlastic');
     ball(g, u, 0.29, 0.58, 0.30, 0.06, 0.06, 0.06, rgb([220,40,40]), 'SmoothPlastic');
@@ -187,15 +187,15 @@ const FOOD = {
     addGem(g, u, 0.49, 0.12, rarity);
   },
   dancing_dumpling(g, u, def, body, bodyHi, bodyLo, bodyT, rarity){
-    ball(g, u, 0, 0.30, 0, 1.05, 0.55, 0.60, body, 'Fabric', bodyT, 0, 0, 0.06); // crescent dumpling, wider than tall
+    ball(g, u, 0, 0.30, 0, 1.05, 0.55, 0.60, body, 'SmoothPlastic', bodyT, 0, 0, 0.06); // crescent dumpling, wider than tall
     for (const x of [-0.35, -0.175, 0, 0.175, 0.35]) ball(g, u, 0.06, 0.54, x, 0.10, 0.09, 0.09, rgb([240,220,170]), 'Fabric');
     ball(g, u, 0.08, 0.56, -0.26, 0.05, 0.05, 0.05, rgb([90,170,70]), 'Fabric');
     ball(g, u, 0.08, 0.56, 0.26, 0.05, 0.05, 0.05, rgb([90,170,70]), 'Fabric');
-    addFace(g, u, 0.28, 0.31, 0.85, body, bodyLo, bodyT, def.iris, def.mouth);
+    addFace(g, u, 0.30, 0.31, 0.85, body, bodyLo, bodyT, def.iris, def.mouth);
     addGem(g, u, 0.22, 0.10, rarity);
   },
   turbo_taco(g, u, def, body, bodyHi, bodyLo, bodyT, rarity){
-    ball(g, u, 0, 0.35, 0, 1.08, 0.62, 0.48, body, 'Fabric', bodyT); // wide flat half-moon shell
+    ball(g, u, 0, 0.35, 0, 1.08, 0.62, 0.48, body, 'SmoothPlastic', bodyT); // wide flat half-moon shell
     for (let i = 0; i < 3; i++){
       const x = [-0.30, 0, 0.30][i];
       ball(g, u, 0.04, 0.64, x, 0.18, 0.11, 0.15, rgb([90,180,70]), 'Fabric');
@@ -207,7 +207,7 @@ const FOOD = {
     ball(g, u, 0.18, 0.58, -0.28, 0.12, 0.08, 0.10, rgb([90,180,70]), 'Fabric');
     ball(g, u, 0.18, 0.58, 0.28, 0.12, 0.08, 0.10, rgb([90,180,70]), 'Fabric');
     ball(g, u, 0.16, 0.52, -0.32, 0.06, 0.06, 0.06, rgb([200,40,25]), 'SmoothPlastic');
-    addFace(g, u, 0.23, 0.36, 0.85, body, bodyLo, bodyT, def.iris, def.mouth);
+    addFace(g, u, 0.24, 0.36, 0.85, body, bodyLo, bodyT, def.iris, def.mouth);
     addGem(g, u, 0.20, 0.13, rarity);
   },
   lord_lasagna(g, u, def, body, bodyHi, bodyLo, bodyT, rarity){
@@ -227,18 +227,18 @@ const FOOD = {
     box(g, u, 0, 0.32, 0, 0.80, 0.60, 0.60, body, 'Fabric', bodyT); // YELLOW cheese wedge
     box(g, u, -0.05, 0.66, 0, 0.80, 0.16, 0.60, bodyHi, 'Fabric', bodyT, -0.30, 0, 0); // sloped top
     const hole = rgb([230,150,0]);
-    ball(g, u, 0.31, 0.10, -0.30, 0.10, 0.08, 0.04, hole, 'SmoothPlastic');
-    ball(g, u, 0.31, 0.58, 0.30, 0.10, 0.08, 0.04, hole, 'SmoothPlastic');
-    ball(g, u, 0.31, 0.08, 0.30, 0.10, 0.08, 0.04, hole, 'SmoothPlastic');
-    ball(g, u, 0.31, 0.60, -0.30, 0.10, 0.08, 0.04, hole, 'SmoothPlastic');
-    ball(g, u, 0, 0.35, 0.41, 0.04, 0.10, 0.10, hole, 'SmoothPlastic');
+    ball(g, u, 0.31, 0.10, -0.30, 0.10, 0.08, 0.06, hole, 'SmoothPlastic');
+    ball(g, u, 0.31, 0.58, 0.30, 0.10, 0.08, 0.06, hole, 'SmoothPlastic');
+    ball(g, u, 0.31, 0.08, 0.30, 0.10, 0.08, 0.06, hole, 'SmoothPlastic');
+    ball(g, u, 0.31, 0.60, -0.30, 0.10, 0.08, 0.06, hole, 'SmoothPlastic');
+    ball(g, u, 0, 0.35, 0.41, 0.06, 0.10, 0.10, hole, 'SmoothPlastic');
     cyl(g, u, -0.05, 0.78, 0, 0.08, 0.50, rgb([230,190,80]), 'Metal', 0, 'Y'); // crown band
     for (const x of [-0.15, 0, 0.15]) ball(g, u, -0.05, 0.86, x, 0.06, 0.06, 0.06, rgb([230,190,80]), 'Metal');
     addFace(g, u, 0.30, 0.34, 0.90, body, bodyLo, bodyT, def.iris, def.mouth);
     addGem(g, u, 0.31, 0.10, rarity);
   },
   king_kebab(g, u, def, body, bodyHi, bodyLo, bodyT, rarity){
-    cyl(g, u, 0, 0.725, 0, 1.45, 0.06, rgb([180,180,180]), 'Metal', 0, 'Y'); // skewer
+    cyl(g, u, 0, 0.725, 0, 1.45, 0.09, rgb([180,180,180]), 'Metal', 0, 'Y'); // skewer
     ball(g, u, 0, 1.48, 0, 0.09, 0.09, 0.09, rgb([180,180,180]), 'Metal');
     box(g, u, 0, 0.15, 0, 0.58, 0.30, 0.58, rgb([150,80,50]), 'Fabric');
     box(g, u, 0, 0.47, 0, 0.58, 0.30, 0.58, rgb([220,60,40]), 'SmoothPlastic');
@@ -251,17 +251,17 @@ const FOOD = {
     addGem(g, u, 0.32, 0.62, rarity);
   },
   baron_burger(g, u, def, body, bodyHi, bodyLo, bodyT, rarity){
-    cyl(g, u, 0, 0.10, 0, 0.16, 0.95, rgb([205,140,70]), 'Fabric', 0, 'Y'); // bottom bun
+    cyl(g, u, 0, 0.10, 0, 0.16, 0.95, rgb([218,155,85]), 'Fabric', 0, 'Y'); // bottom bun
     cyl(g, u, 0, 0.27, 0, 0.18, 1.00, rgb([120,70,40]), 'Fabric', 0, 'Y'); // patty
     box(g, u, 0, 0.40, 0, 1.05, 0.08, 1.05, rgb([250,200,50]), 'SmoothPlastic', 0, 0, 0.785, 0); // cheese
     ball(g, u, 0, 0.48, 0, 1.00, 0.10, 1.00, rgb([90,180,70]), 'Fabric'); // lettuce
     cyl(g, u, 0, 0.56, 0, 0.10, 0.90, rgb([220,60,40]), 'SmoothPlastic', 0, 'Y'); // tomato
-    ball(g, u, 0, 0.80, 0, 0.95, 0.45, 0.95, body, 'Fabric', bodyT); // top bun
-    ball(g, u, 0.10, 1.00, -0.20, 0.05, 0.05, 0.05, rgb([240,235,200]), 'SmoothPlastic');
-    ball(g, u, -0.05, 1.02, 0.05, 0.05, 0.05, 0.05, rgb([240,235,200]), 'SmoothPlastic');
-    ball(g, u, 0.15, 0.98, 0.22, 0.05, 0.05, 0.05, rgb([240,235,200]), 'SmoothPlastic');
-    ball(g, u, -0.15, 0.99, -0.05, 0.05, 0.05, 0.05, rgb([240,235,200]), 'SmoothPlastic');
-    addFace(g, u, 0.46, 0.80, 0.80, body, bodyLo, bodyT, def.iris, def.mouth);
+    ball(g, u, 0, 0.80, 0, 0.95, 0.55, 0.95, body, 'SmoothPlastic', bodyT); // top bun
+    ball(g, u, 0.10, 1.00, -0.20, 0.07, 0.07, 0.07, rgb([240,235,200]), 'SmoothPlastic');
+    ball(g, u, -0.05, 1.02, 0.05, 0.07, 0.07, 0.07, rgb([240,235,200]), 'SmoothPlastic');
+    ball(g, u, 0.15, 0.98, 0.22, 0.07, 0.07, 0.07, rgb([240,235,200]), 'SmoothPlastic');
+    ball(g, u, -0.15, 0.99, -0.05, 0.07, 0.07, 0.07, rgb([240,235,200]), 'SmoothPlastic');
+    addFace(g, u, 0.475, 0.80, 0.80, body, bodyLo, bodyT, def.iris, def.mouth);
     addGem(g, u, 0.47, 0.60, rarity);
   },
   eternal_ramen(g, u, def, body, bodyHi, bodyLo, bodyT, rarity){
@@ -788,8 +788,13 @@ if (VIEW === 'closeup'){
   camera.lookAt(0, 2, -6);
 } else { // group (default)
   placeRow();
-  camera.position.set(0, 10, 42);
-  camera.lookAt(0, 5.5, 0);
+  // Raised + pulled back from the old (0,10,42): the env-polish pergolas
+  // on the south bases (tops ~8) occlude the belt from the old angle, and
+  // the row spans x=-30..30, so the camera must sit far enough back to
+  // fit all 9. From (0,16,42) the sightline clears the pergolas and the
+  // whole row fits.
+  camera.position.set(0, 16, 42);
+  camera.lookAt(0, 4, 0);
 }
 
 addEventListener('resize', () => {

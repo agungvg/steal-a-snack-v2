@@ -160,11 +160,20 @@ for _, def in ipairs(Config.SNACKS) do
 	check("factory: " .. def.key .. " part count <= 60", parts <= 60, tostring(parts))
 	check("factory: " .. def.key .. " part count >= 8", parts >= 8, tostring(parts))
 	-- Every part sits on or above the ground point.
+	-- NOTE: for a Cylinder, Size.Y is the DIAMETER, not the vertical
+	-- extent — the length rides on Size.X. The vertical half-extent is
+	-- min(Size.X, Size.Y)/2, exact for an upright cylinder whose length
+	-- is the smaller side (discs, bowls, buns) and a safe under-estimate
+	-- for a long thin one (the skewer: its true bottom is the ground).
 	local allAbove = true
 	local lowest = 1e9
 	for _, d in ipairs(model:GetDescendants()) do
 		if d:IsA("BasePart") then
-			local bottom = d.Position.Y - d.Size.Y / 2
+			local halfY = d.Size.Y / 2
+			if d.Shape == Enum.PartType.Cylinder then
+				halfY = math.min(d.Size.X, d.Size.Y) / 2
+			end
+			local bottom = d.Position.Y - halfY
 			if bottom < lowest then
 				lowest = bottom
 			end
@@ -214,7 +223,52 @@ for _, def in ipairs(Config.SNACKS) do
 		local c = bodyPart.Color
 		check("factory: queen_queso Body is yellow", c.R > 0.8 and c.G > 0.7 and c.B < 0.3, tostring(c.R) .. "," .. tostring(c.G) .. "," .. tostring(c.B))
 	end
+	-- FACE RELIEF (brown-box fix): the eye whites must be bold googly
+	-- relief, not a thin decal. Old code protruded only ~0.015*s (eye
+	-- whites ~0.05 studs, invisible at game distance / z-fighting); the
+	-- new face sits ~0.05*s proud of the body front. Heading is 0 here,
+	-- so forward is +Z: the eye front must clear the Body front.
+	if eyeL ~= nil and bodyPart ~= nil then
+		local eyeFront = eyeL.Position.Z + eyeL.Size.Z / 2
+		local bodyFront = bodyPart.Position.Z + bodyPart.Size.Z / 2
+		local protrusion = eyeFront - bodyFront
+		-- Lasagna's face sits on the pasta layer, but the cheese-top
+		-- Body overhangs it by 0.025u, so its bar is lower.
+		local bar = 0.03 * def.size
+		if def.key == "lord_lasagna" then
+			bar = 0.015 * def.size
+		end
+		check("factory: " .. def.key .. " eye protrudes past body", protrusion >= bar, "protrusion=" .. tostring(protrusion) .. " bar=" .. tostring(bar))
+		check("factory: " .. def.key .. " eye is deep (googly, not decal)", eyeL.Size.Z >= 0.10 * def.size, "eyeZ=" .. tostring(eyeL.Size.Z))
+	end
+	-- RARITY DISC is a ROUND cylinder (radius 0.85u, height 0.06u),
+	-- like the preview — not the old square box that read as a flat
+	-- "pink platform".
+	local disc = model:FindFirstChild("Disc")
+	if disc ~= nil then
+		check("factory: " .. def.key .. " disc is a cylinder", disc.Shape == Enum.PartType.Cylinder)
+		check("factory: " .. def.key .. " disc height 0.06u", math.abs(disc.Size.X - 0.06 * def.size) < 0.01, "discX=" .. tostring(disc.Size.X))
+		check("factory: " .. def.key .. " disc diameter 1.70u", math.abs(disc.Size.Y - 1.70 * def.size) < 0.01, "discY=" .. tostring(disc.Size.Y))
+	end
 end
+
+-- CYLINDER U-SCALE (brown-box fix): addCyl used to build cylinders at
+-- 0.05-1.45 STUDS instead of 0.05u-1.45u, so bowls/buns were microscopic
+-- in Roblox while the preview showed them u-scaled. Assert the real
+-- u-scaled sizes.
+local ramenDef = Config.lookupSnack("eternal_ramen")
+local ramenModel = CharacterFactory.buildSnack(ramenDef, "None", Vector3.new(0, 2, 0), 0, world)
+local ramenBody = ramenModel:FindFirstChild("Body")
+check("factory: ramen bowl length 0.60u", ramenBody ~= nil and math.abs(ramenBody.Size.X - 0.60 * ramenDef.size) < 0.01, ramenBody and tostring(ramenBody.Size.X) or "no body")
+check("factory: ramen bowl diameter 1.05u", ramenBody ~= nil and math.abs(ramenBody.Size.Y - 1.05 * ramenDef.size) < 0.01, ramenBody and tostring(ramenBody.Size.Y) or "no body")
+local burgerDef = Config.lookupSnack("baron_burger")
+local burgerModel = CharacterFactory.buildSnack(burgerDef, "None", Vector3.new(0, 2, 0), 0, world)
+local patty = burgerModel:FindFirstChild("Patty")
+check("factory: burger patty diameter 1.00u", patty ~= nil and math.abs(patty.Size.Y - 1.00 * burgerDef.size) < 0.01, patty and tostring(patty.Size.Y) or "no patty")
+local kebabDef = Config.lookupSnack("king_kebab")
+local kebabModel = CharacterFactory.buildSnack(kebabDef, "None", Vector3.new(0, 2, 0), 0, world)
+local skewer = kebabModel:FindFirstChild("Skewer")
+check("factory: kebab skewer length 1.45u", skewer ~= nil and math.abs(skewer.Size.X - 1.45 * kebabDef.size) < 0.01, skewer and tostring(skewer.Size.X) or "no skewer")
 
 -- Heading: with heading PI/2 the face should point along +X.
 local ramen = Config.lookupSnack("eternal_ramen")
