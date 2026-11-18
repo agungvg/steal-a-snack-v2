@@ -238,7 +238,7 @@ local detector = CharacterFactory.attachClick(clickModel, 40, function(p)
 end)
 check("factory: attachClick returns detector", detector ~= nil and detector.ClassName == "ClickDetector")
 check("factory: click reach 40", detector.MaxActivationDistance == 40)
-check("factory: detector parented to root", detector.Parent == clickModel.PrimaryPart)
+check("factory: detector parented to Body", detector.Parent == clickModel:FindFirstChild("Body"))
 if detector._clickCb then
 	detector._clickCb("FakePlayer")
 	check("factory: click handler fires", clickedWith == "FakePlayer")
@@ -278,6 +278,76 @@ check("weather: applyTo Storm brightness", approx(fakeLighting.Brightness, 1.1))
 check("weather: applyTo Storm fogEnd", fakeLighting.FogEnd == 260)
 check("weather: applyTo Storm clockTime", fakeLighting.ClockTime == 17.5)
 check("weather: current after applyTo", Weather.current() == "Storm")
+
+-- ------------------------------------------------------------------- Bases
+-- Environment build (Bases.build / buildBase) runs in the mock harness:
+-- a mock Folder stands in for Workspace, so game:GetService is never hit.
+local envWorld = Instance.new("Folder")
+envWorld.Name = "Workspace"
+
+local function countDesc(root, pred)
+	local n = 0
+	for _, d in ipairs(root:GetDescendants()) do
+		if pred(d) then
+			n += 1
+		end
+	end
+	return n
+end
+local function hasDesc(root, name)
+	for _, d in ipairs(root:GetDescendants()) do
+		if d.Name == name then
+			return true
+		end
+	end
+	return false
+end
+
+-- Slot geometry contract unchanged.
+check("bases: platformCenter base 1", Bases.platformCenter(1) == Config.BASE_CENTERS[1])
+check("bases: slotWorldPos base 1 slot 1", Bases.slotWorldPos(1, 1) == Config.BASE_CENTERS[1] + Vector3.new(-6, 0, -3.5))
+check("bases: slotWorldPos base 8 slot 6", Bases.slotWorldPos(8, 6) == Config.BASE_CENTERS[8] + Vector3.new(6, 0, 3.5))
+
+-- One base: cool dressing present, floor top still y = 1.
+local baseModel = Bases.buildBase(1, envWorld)
+check("bases: buildBase returns Base1Env", baseModel ~= nil and baseModel.Name == "Base1Env")
+check("bases: base has neon front glow", hasDesc(baseModel, "FrontGlow"))
+check("bases: base has entrance arch bar", hasDesc(baseModel, "ArchBar"))
+check("bases: base has arch posts", hasDesc(baseModel, "ArchPost-1") and hasDesc(baseModel, "ArchPost1"))
+check("bases: base has arch orbs", hasDesc(baseModel, "ArchOrb-1"))
+check("bases: base has wall crown", hasDesc(baseModel, "WallCrown"))
+check("bases: base has pilaster caps", hasDesc(baseModel, "PilasterCap-1"))
+check("bases: base has runner", hasDesc(baseModel, "Runner"))
+check("bases: base has neon runner edges", hasDesc(baseModel, "RunnerEdge-1"))
+local floorBoard = baseModel:FindFirstChild("FloorBoard1")
+check("bases: floor top still y=1", floorBoard ~= nil and approx(floorBoard.Position.Y + 0.15, 1.0))
+local frontGlow = nil
+for _, d in ipairs(baseModel:GetDescendants()) do
+	if d.Name == "FrontGlow" then
+		frontGlow = d
+	end
+end
+check("bases: front glow is Neon", frontGlow ~= nil and frontGlow.Material == Enum.Material.Neon)
+
+-- Full build: 8 bases + plaza lights + ground life.
+local envFolder = Bases.build(envWorld)
+check("bases: build returns BasesEnv folder", envFolder ~= nil and envFolder.Name == "BasesEnv")
+check("bases: build parents folder to workspace", envFolder.Parent == envWorld)
+check("bases: 8 base models", countDesc(envFolder, function(d) return d.ClassName == "Model" and string.sub(d.Name, 1, 4) == "Base" end) == 8)
+check("bases: 6 plaza lamp posts", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 13) == "PlazaLampPole" end) == 6)
+check("bases: 6 plaza lamp lights", countDesc(envFolder, function(d) return d.ClassName == "PointLight" and string.sub(d.Name, 1, 14) == "PlazaLampLight" end) == 6)
+check("bases: string bulbs 28", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 10) == "StringBulb" end) == 28)
+check("bases: string wires 32", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 10) == "StringWire" end) == 32)
+check("bases: total PointLights <= 20", countDesc(envFolder, function(d) return d.ClassName == "PointLight" end) <= 20)
+check("bases: 12 layered trees", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 9) == "TreeTrunk" end) == 12)
+check("bases: fountain present", hasDesc(envFolder, "FountainBasin"))
+check("bases: pond present", hasDesc(envFolder, "PondWater"))
+check("bases: belt flower beds 4", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 13) == "BeltFlowerBed" end) == 4)
+check("bases: rocks present", hasDesc(envFolder, "Rock1_1"))
+check("bases: feature paths present", hasDesc(envFolder, "FountainPath1") and hasDesc(envFolder, "PondPath1"))
+-- Rebuild is idempotent (old folder destroyed, one folder left).
+local envFolder2 = Bases.build(envWorld)
+check("bases: rebuild idempotent", envFolder2 ~= nil and countDesc(envWorld, function(d) return d.Name == "BasesEnv" end) == 1)
 
 -- ------------------------------------------------------------------- result
 print("--------------------------------------------------")

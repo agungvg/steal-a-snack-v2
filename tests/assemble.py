@@ -28,6 +28,11 @@ def load_module(rel_path):
         if re.match(r"^return \w+$", lines[i].strip()):
             del lines[i]
         break
+    # Drop `local X = require(...)` lines: in the combined chunk the
+    # required module is already a top-level local in scope (Config is
+    # loaded first), and standalone Luau has no require/game globals.
+    # Bases.luau is the only source module that requires anything.
+    lines = [ln for ln in lines if not re.match(r"^\s*local \w+ = require\(", ln)]
     return "\n".join(lines)
 
 
@@ -45,6 +50,7 @@ parts = [
     load_module("src/shared/Config.luau"),
     load_module("src/server/CharacterFactory.luau"),
     load_module("src/server/Weather.luau"),
+    load_module("src/server/Bases.luau"),
     load_tests(),
 ]
 out = ROOT / "tests" / "_combined.luau"

@@ -55,6 +55,27 @@
 -- so it can never clip a snack standing on a slot (snacks are up to 6
 -- studs wide). Slots, clicks and steal reach are unaffected.
 --
+-- BACKGROUND + LIGHTS (Lyso order 2026-11-18: background must be nice WITH
+-- LIGHTS, bases must be COOL, not standard):
+--   Plaza lamps  6 tall lamp posts framing the belt (3 per side) with a
+--                warm Neon bulb + PointLight each (range 18, shadowless).
+--   String lights 4 catenary spans between the lamp posts, warm/gold +
+--                pink/cyan Neon bulbs with a thin wire, sagging mid-span.
+--   Neon identity every base glows in its accent colour: a Neon crown
+--                strip on the back wall, Neon caps on the pilasters, a
+--                Neon front-edge strip, and a glowing entrance arch
+--                (posts + Neon top bar + orbs) framing the front.
+--   Floor runner an accent-colour carpet with gold Neon edges down the
+--                middle of each platform (flat, 0.06 proud — slots sit
+--                on it, geometry unchanged).
+--   Ground life  flower beds along the belt, boulder clusters on the
+--                outer grass, cobble paths belt -> fountain and belt ->
+--                pond, and 4 more layered trees at the far corners
+--                (the plain ball-on-stick trees were removed from
+--                default.project.json).
+-- Light budget: 6 plaza + 8 stall + 1 fountain = 15 PointLights total,
+-- all shadowless. Neon/string bulbs are emissive only (no light cost).
+--
 -- SlotRecord = { snackKey: string, variant: string, rate: number,
 --                mult: number, model: Model }
 
@@ -302,6 +323,7 @@ end
 -- footprint stays 20 x 14. `model` is parented by the caller.
 -- ------------------------------------------------------------------
 local function buildFloor(model: Model, index: number, cx: number, cz: number): ()
+	local accent = BASE_ACCENTS[index]
 	-- Stone plinth the planks sit on: visible 0.7-stud stone band around
 	-- the platform edge (Genshin stone-base read). Top at y = 0.7.
 	part(model, "Plinth", Enum.Material.Cobblestone, jitteredRGB(STONE, index, 1, 0.04),
@@ -326,6 +348,16 @@ local function buildFloor(model: Model, index: number, cx: number, cz: number): 
 		Vector3.new(0.9, 0.35, 14), Vector3.new(cx - 10.4, 0.175, cz))
 	part(model, "KerbRight", Enum.Material.Concrete, kerbC,
 		Vector3.new(0.9, 0.35, 14), Vector3.new(cx + 10.4, 0.175, cz))
+	-- Accent runner rug down the middle of the platform: a carpet
+	-- leading from the entrance to the back wall, in the base colour.
+	-- Flat (0.06 proud) — the middle slot column sits on it, and a
+	-- 0.06 sink is invisible, so slot geometry is unchanged.
+	part(model, "Runner", Enum.Material.Fabric, rgb(accent),
+		Vector3.new(3, 0.06, 13), Vector3.new(cx, 1.03, cz), nil, 0.15)
+	for _, side in ipairs({ -1, 1 }) do
+		part(model, "RunnerEdge" .. side, Enum.Material.Neon, rgb(GOLD),
+			Vector3.new(0.18, 0.06, 13), Vector3.new(cx + side * 1.6, 1.03, cz))
+	end
 end
 
 local function buildWall(model: Model, index: number, cx: number, cz: number): ()
@@ -373,6 +405,16 @@ local function buildWall(model: Model, index: number, cx: number, cz: number): (
 		part(model, "Flag" .. side, Enum.Material.Fabric, rgb(accent),
 			Vector3.new(1.7, 1.0, 0.1), Vector3.new(px + side * 0.95, 8.4, wallZ))
 	end
+	-- Neon crown strip along the top of the back wall, in the base
+	-- colour: the wall glows in the base's identity from across the
+	-- plaza (emissive only, no light cost).
+	part(model, "WallCrown", Enum.Material.Neon, rgb(accent),
+		Vector3.new(20, 0.35, 0.9), Vector3.new(cx, 6.15, wallZ))
+	-- Glowing Neon caps on the pilasters.
+	for _, side in ipairs({ -1, 1 }) do
+		part(model, "PilasterCap" .. side, Enum.Material.Neon, rgb(accent),
+			Vector3.new(1.5, 0.35, 1.5), Vector3.new(cx + side * 9.4, 6.75, wallZ))
+	end
 	-- Dirt at the floor line: thin dark translucent strip along the wall
 	-- base (geometry wear — see header note on decals).
 	part(model, "DirtFloorLine", Enum.Material.SmoothPlastic, Color3.fromRGB(60, 50, 40),
@@ -385,6 +427,23 @@ local function buildFront(model: Model, index: number, cx: number, cz: number): 
 	-- Front trim in the base's own colour: the colour carrier.
 	part(model, "FrontTrim", Enum.Material.SmoothPlastic, rgb(accent),
 		Vector3.new(20, 0.5, 0.6), Vector3.new(cx, 1.15, cz + t * 6.8), nil, nil, true)
+	-- Neon front-edge strip: the platform's front edge glows in the
+	-- base colour, visible from the belt at any distance.
+	part(model, "FrontGlow", Enum.Material.Neon, rgb(accent),
+		Vector3.new(20, 0.18, 0.25), Vector3.new(cx, 1.32, cz + t * 6.95))
+	-- Glowing entrance arch framing the front: two accent posts + a Neon
+	-- top bar + glowing orbs. Posts sit at the front corners (x ±8.5),
+	-- clear of the slot columns (x -6/0/6); the bar sits above every
+	-- snack's face (y 5.7) and reads as a gateway, not a cage.
+	for _, side in ipairs({ -1, 1 }) do
+		part(model, "ArchPost" .. side, Enum.Material.SmoothPlastic, rgb(accent),
+			Vector3.new(0.6, 4.6, 0.6), Vector3.new(cx + side * 8.5, 3.3, cz + t * 6.9), nil, nil, true)
+		part(model, "ArchOrb" .. side, Enum.Material.Neon, rgb(accent),
+			Vector3.new(0.7, 0.7, 0.7), Vector3.new(cx + side * 8.5, 6.0, cz + t * 6.9),
+			Enum.PartType.Ball)
+	end
+	part(model, "ArchBar", Enum.Material.Neon, rgb(accent),
+		Vector3.new(17.6, 0.4, 0.4), Vector3.new(cx, 5.7, cz + t * 6.9))
 	-- Gold Neon wedge chevrons on the path pointing toward the belt.
 	-- Neon ONLY here (and the lamp bulb): these are the emitting markers.
 	for _, ox in ipairs({ -5, 0, 5 }) do
@@ -613,6 +672,138 @@ local function buildPond(parent: Instance): ()
 end
 
 -- ------------------------------------------------------------------
+-- PLAZA LIGHTS + GROUND LIFE (background polish, Lyso order 2026-11-18)
+-- ------------------------------------------------------------------
+
+local STRING_COLORS = {
+	{ 255, 200, 100 }, -- warm gold
+	{ 255, 150, 180 }, -- soft pink
+	{ 140, 220, 255 }, -- soft cyan
+	{ 255, 240, 200 }, -- warm white
+} :: { { number } }
+
+-- 6 plaza lamp posts framing the belt, 3 per side. The ±56 posts stand
+-- at the edge of the outer base paths (lamps lining the paths); the 0
+-- posts stand in the centre gaps. All clear of the belt, slots and spawn.
+local LAMP_POSTS = {
+	{ -56, -8 }, { 0, -8 }, { 56, -8 },
+	{ -56, 8 }, { 0, 8 }, { 56, 8 },
+} :: { { number } }
+
+-- One tall plaza lamp post: stone base + dark pole + hanging warm
+-- lantern (Neon bulb + PointLight, range 18, shadowless).
+local function buildLampPost(parent: Instance, n: number, x: number, z: number): ()
+	local dir = if z < 0 then 1 else -1 -- arm reaches toward the belt
+	part(parent, "PlazaLampBase" .. n, Enum.Material.Cobblestone, rgb(STONE),
+		Vector3.new(1.2, 0.6, 1.2), Vector3.new(x, 0.3, z), nil, nil, true)
+	part(parent, "PlazaLampPole" .. n, Enum.Material.Metal, rgb({ 55, 55, 60 }),
+		Vector3.new(0.35, 7, 0.35), Vector3.new(x, 3.5, z), nil, nil, true)
+	part(parent, "PlazaLampArm" .. n, Enum.Material.Metal, rgb({ 55, 55, 60 }),
+		Vector3.new(0.25, 0.25, 1.4), Vector3.new(x, 6.8, z + dir * 0.6))
+	part(parent, "PlazaLampRod" .. n, Enum.Material.Metal, rgb({ 55, 55, 60 }),
+		Vector3.new(0.12, 0.5, 0.12), Vector3.new(x, 6.6, z + dir * 1.2))
+	local bulb = part(parent, "PlazaLampBulb" .. n, Enum.Material.Neon, rgb(LAMP_WARM),
+		Vector3.new(0.7, 0.7, 0.7), Vector3.new(x, 6.2, z + dir * 1.2), Enum.PartType.Ball)
+	local light = Instance.new("PointLight")
+	light.Name = "PlazaLampLight" .. n
+	light.Color = rgb(LAMP_WARM)
+	light.Brightness = 1.5
+	light.Range = 18
+	light.Shadows = false
+	light.Parent = bulb
+	part(parent, "PlazaLampCap" .. n, Enum.Material.Metal, rgb({ 55, 55, 60 }),
+		Vector3.new(0.9, 0.25, 0.9), Vector3.new(x, 7.1, z))
+end
+
+-- String-light catenary between two lamp posts on the same side.
+-- Bulbs every 7 studs, sagging 1.3 at mid-span; thin wire segments
+-- join them. Bulbs are Neon (emissive only, no light cost).
+local function buildStringSpan(parent: Instance, span: number, x1: number, x2: number, z: number): ()
+	local baseY = 7.0
+	local half = (x2 - x1) / 2
+	local mid = (x1 + x2) / 2
+	local function sagY(x: number): number
+		local u = (x - mid) / half
+		return baseY - 1.3 * (1 - u * u)
+	end
+	-- Points: post top, 7 bulbs, post top.
+	local pts = {}
+	table.insert(pts, Vector3.new(x1, baseY, z))
+	for b = 1, 7 do
+		local bx = x1 + 7 * b
+		table.insert(pts, Vector3.new(bx, sagY(bx), z))
+	end
+	table.insert(pts, Vector3.new(x2, baseY, z))
+	-- Bulbs (skip the two post endpoints).
+	for b = 2, 8 do
+		local p = pts[b]
+		part(parent, "StringBulb" .. span .. "_" .. (b - 1), Enum.Material.Neon,
+			rgb(STRING_COLORS[((b - 2) % #STRING_COLORS) + 1]),
+			Vector3.new(0.35, 0.35, 0.35), p, Enum.PartType.Ball)
+	end
+	-- Wire segments between consecutive points.
+	for s = 1, #pts - 1 do
+		local a = pts[s]
+		local b = pts[s + 1]
+		local dx = b.X - a.X
+		local dy = b.Y - a.Y
+		local len = math.sqrt(dx * dx + dy * dy)
+		local wire = part(parent, "StringWire" .. span .. "_" .. s, Enum.Material.SmoothPlastic,
+			Color3.fromRGB(40, 38, 36), Vector3.new(len + 0.1, 0.06, 0.06),
+			Vector3.new((a.X + b.X) / 2, (a.Y + b.Y) / 2, z))
+		wire.CFrame = CFrame.new((a.X + b.X) / 2, (a.Y + b.Y) / 2, z)
+			* CFrame.Angles(0, 0, math.atan2(dy, dx))
+	end
+end
+
+-- Flower beds along the belt, in the gaps between bases (clear of the
+-- belt rails and the base fronts).
+local function buildBeltFlowers(parent: Instance): ()
+	local spots = { { -36, -5.5 }, { 36, -5.5 }, { -36, 5.5 }, { 36, 5.5 } }
+	for i, spot in ipairs(spots) do
+		local bx, bz = spot[1], spot[2]
+		part(parent, "BeltFlowerBed" .. i, Enum.Material.Pebble, rgb({ 90, 65, 45 }),
+			Vector3.new(4, 0.35, 1.2), Vector3.new(bx, 0.175, bz))
+		for f = 1, 3 do
+			local fx = bx - 1.2 + (f - 1) * 1.2
+			part(parent, "BeltFlowerStem" .. i .. "_" .. f, Enum.Material.SmoothPlastic,
+				rgb({ 70, 110, 55 }), Vector3.new(0.12, 0.6, 0.12), Vector3.new(fx, 0.65, bz))
+			part(parent, "BeltFlower" .. i .. "_" .. f, Enum.Material.SmoothPlastic,
+				rgb(FLOWER_COLORS[((i + f - 1) % #FLOWER_COLORS) + 1]),
+				Vector3.new(0.35, 0.35, 0.35), Vector3.new(fx, 1.0, bz), Enum.PartType.Ball)
+		end
+	end
+end
+
+-- Boulder clusters on the outer grass, away from play.
+local function buildRocks(parent: Instance): ()
+	local clusters = { { -95, 0 }, { 95, 0 }, { 0, -62 } }
+	for i, c in ipairs(clusters) do
+		local sizes = { 2.2, 1.5, 1.1 }
+		for j, s in ipairs(sizes) do
+			part(parent, "Rock" .. i .. "_" .. j, Enum.Material.Slate,
+				jitteredRGB({ 130, 128, 122 }, i * 10 + j, 5, 0.05),
+				Vector3.new(s, s * 0.8, s),
+				Vector3.new(c[1] + (j - 2) * 1.6, s * 0.4, c[2] + (j % 2) * 1.2),
+				Enum.PartType.Ball, nil, true)
+		end
+	end
+end
+
+-- Cobble paths from the belt to the fountain (north gap) and the pond
+-- (south gap), so the water features connect to the play area.
+local function buildFeaturePaths(parent: Instance): ()
+	for p = 1, 4 do
+		part(parent, "FountainPath" .. p, Enum.Material.Cobblestone,
+			jitteredRGB(COBBLE, 70 + p, 7, 0.05),
+			Vector3.new(4, 0.12, 3), Vector3.new(-36, 0.06, -5 - (p - 1) * 3.2))
+		part(parent, "PondPath" .. p, Enum.Material.Cobblestone,
+			jitteredRGB(COBBLE, 80 + p, 7, 0.05),
+			Vector3.new(4, 0.12, 3), Vector3.new(36, 0.06, 5 + (p - 1) * 3.2))
+	end
+end
+
+-- ------------------------------------------------------------------
 -- Public build entry points (additive API).
 -- ------------------------------------------------------------------
 function Bases.buildBase(index: number, parent: Instance?): Model
@@ -644,12 +835,25 @@ function Bases.build(parent: Instance?): Folder
 	local treeSpots = {
 		{ -72, -38 }, { -36, -38 }, { 36, -38 }, { 72, -38 },
 		{ -72, 38 }, { -36, 38 }, { 36, 38 }, { 72, 38 },
+		{ -85, -45 }, { 85, -45 }, { -85, 45 }, { 85, 45 },
 	}
 	for i, spot in ipairs(treeSpots) do
 		buildTree(folder, i, spot[1], spot[2])
 	end
 	buildFountain(folder)
 	buildPond(folder)
+	-- Background lights: 6 plaza lamp posts + 4 string-light spans.
+	for n, post in ipairs(LAMP_POSTS) do
+		buildLampPost(folder, n, post[1], post[2])
+	end
+	buildStringSpan(folder, 1, -56, 0, -8)
+	buildStringSpan(folder, 2, 0, 56, -8)
+	buildStringSpan(folder, 3, -56, 0, 8)
+	buildStringSpan(folder, 4, 0, 56, 8)
+	-- Ground life: belt flower beds, boulders, feature paths.
+	buildBeltFlowers(folder)
+	buildRocks(folder)
+	buildFeaturePaths(folder)
 	folder.Parent = workspace
 	return folder
 end

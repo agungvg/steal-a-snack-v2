@@ -678,9 +678,18 @@ end
 function CharacterFactory.attachClick(model: Model, reach: number, handler: (Player) -> ()): ClickDetector
 	local root = model.PrimaryPart
 	assert(root ~= nil, "CharacterFactory.attachClick: model has no PrimaryPart")
+	-- Parent the detector to the visible food body ("Body", the food's main
+	-- mass), NOT to the invisible Root plate: a ClickDetector only fires
+	-- when its own parent part is clicked, and the Root is a tiny invisible
+	-- 0.5x0.05x0.5 plate at the ground — so clicking the snack itself did
+	-- nothing and buying felt broken.
+	local target = model:FindFirstChild("Body")
+	if not target or not target:IsA("BasePart") then
+		target = root
+	end
 	local detector = Instance.new("ClickDetector")
 	detector.MaxActivationDistance = reach
-	detector.Parent = root
+	detector.Parent = target
 	detector.MouseClick:Connect(function(player: Player)
 		handler(player)
 	end)

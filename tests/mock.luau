@@ -76,6 +76,9 @@ function UD2.new(xs, xo, ys, yo)
 		Y = { Scale = ys or 0, Offset = yo or 0 },
 	}
 end
+function UD2.fromScale(xs, ys)
+	return UD2.new(xs or 0, 0, ys or 0, 0)
+end
 
 -- -------------------------------------------------------------------- EnumT
 local EnumT = {
@@ -87,7 +90,8 @@ local EnumT = {
 		Plastic = "Plastic",
 		Wood = "Wood",
 	},
-	PartType = { Ball = "Ball", Block = "Block", Cylinder = "Cylinder" },
+	PartType = { Ball = "Ball", Block = "Block", Cylinder = "Cylinder", Wedge = "Wedge" },
+	NormalId = { Front = "Front", Back = "Back", Left = "Left", Right = "Right", Top = "Top", Bottom = "Bottom" },
 	Font = { GothamBold = "GothamBold", Gotham = "Gotham" },
 	TextXAlignment = { Left = "Left", Center = "Center", Right = "Right" },
 }
