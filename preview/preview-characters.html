@@ -323,33 +323,155 @@ function envMesh(geo, color, kind, x, y, z, sx, sy, sz, ry){
 }
 const boxGeo = new THREE.BoxGeometry(1,1,1), sphGeo = new THREE.SphereGeometry(1, 20, 14), cylGeo = new THREE.CylinderGeometry(1,1,1,20);
 
+// ---- env dressing helpers (mirror src/server/Bases.luau) ----
+// Neon = MeshBasicMaterial: always full-bright, reads as glowing even in daylight.
+function neonBox(x, y, z, sx, sy, sz, color){
+  const m = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: rgb(color) }));
+  m.position.set(x, y, z); m.scale.set(sx, sy, sz); scene.add(m); return m;
+}
+function neonBall(x, y, z, d, color){
+  const m = new THREE.Mesh(sphGeo, new THREE.MeshBasicMaterial({ color: rgb(color) }));
+  m.scale.setScalar(d); m.position.set(x, y, z); scene.add(m); return m;
+}
+// soft additive halo sprite so bulbs read as LIGHTS, not just bright dots
+const haloTex = (function(){
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,1)');
+  gr.addColorStop(0.35,'rgba(255,255,255,0.45)');
+  gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0,0,128,128);
+  return new THREE.CanvasTexture(cv);
+})();
+function halo(x, y, z, scale, color){
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: rgb(color), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  sp.scale.set(scale, scale, 1); sp.position.set(x, y, z); scene.add(sp); return sp;
+}
+// thin beam between two points in the XY plane at fixed z (string-light wire)
+function beam(x1, y1, x2, y2, z, color){
+  const dx = x2-x1, dy = y2-y1, len = Math.hypot(dx, dy);
+  const m = new THREE.Mesh(boxGeo, mat(rgb(color), 'SmoothPlastic'));
+  m.position.set((x1+x2)/2, (y1+y2)/2, z);
+  m.scale.set(len + 0.1, 0.07, 0.07);
+  m.rotation.z = Math.atan2(dy, dx);
+  scene.add(m); return m;
+}
+// "BASE N" number plate: cream plane with drawn text, faces the belt
+function plateMesh(x, y, z, t, text){
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#e8e0cd'; g.fillRect(0,0,256,128);
+  g.strokeStyle = '#8a7a5a'; g.lineWidth = 6; g.strokeRect(5,5,246,118);
+  g.fillStyle = '#3c372d'; g.font = 'bold 52px system-ui, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, 128, 68);
+  const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.6), new THREE.MeshBasicMaterial({ map: tex }));
+  m.position.set(x, y, z);
+  if (t < 0) m.rotation.y = Math.PI;
+  scene.add(m); return m;
+}
+
 // ground
 envMesh(new THREE.PlaneGeometry(220, 140), rgb([89,166,77]), 'Fabric', 0, 0, 0).rotation.x = -Math.PI/2;
 // belt + rails
 envMesh(boxGeo, rgb([31,31,36]), 'Metal', 0, 1.5, 0, 128, 1, 6);
 envMesh(boxGeo, rgb([230,191,51]), 'Metal', 0, 2.3, 3.6, 128, 0.6, 0.6);
 envMesh(boxGeo, rgb([230,191,51]), 'Metal', 0, 2.3, -3.6, 128, 0.6, 0.6);
-// base platforms (wood planks, accent trim)
+// base platforms + dressing (mirrors Bases.luau buildFloor/buildWall/
+// buildFront/buildGreenery/buildStall; wall at cz∓6.6, top y=1, 20x14)
 const BASE_CENTERS = [[-54,-22],[-18,-22],[18,-22],[54,-22],[-54,22],[-18,22],[18,22],[54,22]];
 const BASE_ACCENTS = [[217,89,89],[89,153,217],[89,204,115],[217,179,77],[179,115,217],[217,140,77],[77,191,191],[230,115,153]];
+const FLOWER_COLORS = [[235,120,170],[240,200,60],[170,120,220],[235,228,215],[220,80,70]];
 BASE_CENTERS.forEach((c, i) => {
-  envMesh(boxGeo, rgb([168,124,78]), 'Fabric', c[0], 0, c[1], 20, 2, 14); // wood floor, top y=1
-  envMesh(boxGeo, rgb(BASE_ACCENTS[i]), 'Fabric', c[0], 0.15, c[1] + (c[1] < 0 ? -6.9 : 6.9), 20, 0.3, 0.25); // accent trim
-  // back wall + number plate
-  const wz = c[1] < 0 ? c[1] - 7.5 : c[1] + 7.5;
-  envMesh(boxGeo, rgb([232,224,205]), 'Fabric', c[0], 2.5, wz, 20, 5, 0.6);
-  // market stall behind the wall
-  const sz = c[1] < 0 ? c[1] - 11 : c[1] + 11;
-  envMesh(boxGeo, rgb([150,105,60]), 'Fabric', c[0], 1.0, sz, 7, 2, 3); // counter
-  for (let k = 0; k < 7; k++){ // striped awning
-    envMesh(boxGeo, rgb(k % 2 ? [235,235,230] : [200,50,55]), 'Fabric', c[0] - 3 + k, 3.4, sz, 1, 0.25, 4.5);
+  const accent = BASE_ACCENTS[i];
+  const t = c[1] < 0 ? 1 : -1; // toward belt (+Z north, -Z south)
+  const cx = c[0], cz = c[1];
+  const wz = cz - t * 6.6; // back wall centre
+  // stone plinth + 7 jittered wood-plank floor boards (top y=1)
+  envMesh(boxGeo, rgb([140,135,128]), 'Fabric', cx, 0.35, cz, 20, 0.7, 14);
+  for (let b = 0; b < 7; b++){
+    const f = 0.94 + ((i * 7 + b) % 5) * 0.03;
+    envMesh(boxGeo, rgb([168*f, 124*f, 78*f]), 'Fabric', cx - 10 + (20/7)*(b + 0.5), 0.85, cz, 20/7 - 0.06, 0.3, 14);
   }
-  // warm stall lamp
+  // concrete kerb ring where grass meets stone
+  envMesh(boxGeo, rgb([150,148,140]), 'Fabric', cx, 0.175, cz + t*7.4, 21, 0.35, 0.9);
+  envMesh(boxGeo, rgb([150,148,140]), 'Fabric', cx, 0.175, cz - t*7.4, 21, 0.35, 0.9);
+  envMesh(boxGeo, rgb([150,148,140]), 'Fabric', cx - 10.4, 0.175, cz, 0.9, 0.35, 14);
+  envMesh(boxGeo, rgb([150,148,140]), 'Fabric', cx + 10.4, 0.175, cz, 0.9, 0.35, 14);
+  // accent runner rug down the middle + gold neon edge strips
+  envMesh(boxGeo, rgb(accent), 'Fabric', cx, 1.03, cz, 3, 0.06, 13);
+  neonBox(cx - 1.6, 1.03, cz, 0.18, 0.06, 13, [255,180,40]);
+  neonBox(cx + 1.6, 1.03, cz, 0.18, 0.06, 13, [255,180,40]);
+  // front trim + neon front-edge glow strip
+  envMesh(boxGeo, rgb(accent), 'Fabric', cx, 1.15, cz + t*6.8, 20, 0.5, 0.6);
+  neonBox(cx, 1.32, cz + t*6.95, 20, 0.18, 0.25, accent);
+  // glowing entrance arch: accent posts + neon top bar + neon orbs
+  for (const s of [-1, 1]){
+    envMesh(boxGeo, rgb(accent), 'Fabric', cx + s*8.5, 3.3, cz + t*6.9, 0.6, 4.6, 0.6);
+    neonBall(cx + s*8.5, 6.0, cz + t*6.9, 0.7, accent);
+    halo(cx + s*8.5, 6.0, cz + t*6.9, 1.6, accent);
+  }
+  neonBox(cx, 5.7, cz + t*6.9, 17.6, 0.4, 0.4, accent);
+  // plaster back wall + cobblestone pilasters + neon crown + neon caps
+  envMesh(boxGeo, rgb([198,190,172]), 'Fabric', cx, 3.5, wz, 20, 5, 0.8);
+  for (const s of [-1, 1]){
+    envMesh(boxGeo, rgb([140,135,128]), 'Fabric', cx + s*9.4, 3.8, wz, 1.2, 5.6, 1.2);
+    neonBox(cx + s*9.4, 6.75, wz, 1.5, 0.35, 1.5, accent);
+  }
+  neonBox(cx, 6.15, wz, 20, 0.35, 0.9, accent);
+  // number plate + accent banner + flags on the wall-top corners
+  plateMesh(cx, 4.6, wz + t*0.62, t, 'BASE ' + (i + 1));
+  envMesh(boxGeo, rgb(accent), 'Fabric', cx + 5.5, 3.1, wz + t*0.55, 2.2, 3.2, 0.15);
+  envMesh(boxGeo, rgb([232,224,205]), 'Fabric', cx + 5.5, 3.1, wz + t*0.55, 0.5, 3.2, 0.16);
+  for (const s of [-1, 1]){
+    envMesh(boxGeo, rgb([110,78,48]), 'Fabric', cx + s*8, 7.4, wz, 0.25, 3, 0.25);
+    envMesh(boxGeo, rgb(accent), 'Fabric', cx + s*8 + s*0.95, 8.4, wz, 1.7, 1.0, 0.1);
+  }
+  // cobblestone path, base front edge -> belt rail (4 panels)
+  for (let p = 0; p < 4; p++){
+    envMesh(boxGeo, rgb([138,132,120]), 'Fabric', cx, 0.06, cz + t*(7.6 + 11*(p + 0.5)/4), 6, 0.12, 11/4 - 0.06);
+  }
+  // flower bed along the wall base + layered bushes at the front corners
+  envMesh(boxGeo, rgb([90,65,45]), 'Fabric', cx - 4, 1.15, cz - t*5.6, 8, 0.35, 1.2);
+  for (let f = 0; f < 5; f++){
+    const fx = cx - 7 + f * 1.5;
+    envMesh(boxGeo, rgb([70,110,55]), 'Fabric', fx, 1.65, cz - t*5.6, 0.12, 0.7, 0.12);
+    envMesh(sphGeo, rgb(FLOWER_COLORS[(i + f) % 5]), 'SmoothPlastic', fx, 2.05, cz - t*5.6, 0.35, 0.35, 0.35);
+  }
+  for (const s of [-1, 1]){
+    envMesh(sphGeo, rgb([72,126,58]), 'Fabric', cx + s*8.5, 1.7, cz + t*5.5, 1.8, 1.4, 1.8);
+    envMesh(sphGeo, rgb([96,145,72]), 'Fabric', cx + s*8.5 + s*0.7, 1.5, cz + t*5.5 + 0.4, 1.2, 1.0, 1.2);
+  }
+  // market stall behind the wall (counter + lighter top + back board +
+  // framed glass window + jars + goods + red/white striped awning)
+  const sz = cz - t * 10.2;
+  envMesh(boxGeo, rgb([120,85,55]), 'Fabric', cx, 0.5, sz, 3.6, 1.0, 1.6);
+  envMesh(boxGeo, rgb([165,125,80]), 'Fabric', cx, 1.1, sz, 3.9, 0.25, 1.9);
+  envMesh(boxGeo, rgb([105,74,48]), 'Fabric', cx, 1.6, sz - t*0.9, 3.6, 2.2, 0.2);
+  envMesh(boxGeo, rgb([170,200,215]), 'SmoothPlastic', cx, 2.0, sz - t*0.78, 1.6, 1.0, 0.08);
+  envMesh(boxGeo, rgb([80,56,36]), 'Fabric', cx, 2.55, sz - t*0.78, 1.9, 0.15, 0.12);
+  envMesh(boxGeo, rgb([80,56,36]), 'Fabric', cx, 1.45, sz - t*0.78, 1.9, 0.15, 0.12);
+  envMesh(boxGeo, rgb([80,56,36]), 'Fabric', cx - 0.9, 2.0, sz - t*0.78, 0.15, 1.25, 0.12);
+  envMesh(boxGeo, rgb([80,56,36]), 'Fabric', cx + 0.9, 2.0, sz - t*0.78, 0.15, 1.25, 0.12);
+  const jarTints = [[220,170,80],[200,90,90],[150,190,120]];
+  for (let j = 0; j < 3; j++){
+    envMesh(cylGeo, rgb(jarTints[j]), 'SmoothPlastic', cx - 1.2 + j*0.9, 1.55, sz - 0.4, 0.5, 0.7, 0.5);
+  }
+  envMesh(boxGeo, rgb([165,135,95]), 'Fabric', cx + 1.2, 1.5, sz + 0.4, 0.8, 0.6, 0.8);
+  envMesh(boxGeo, rgb([235,200,60]), 'SmoothPlastic', cx - 1.2, 1.4, sz + 0.45, 0.5, 0.35, 0.7);
+  for (let k = 0; k < 7; k++){ // striped awning
+    envMesh(boxGeo, rgb(k % 2 ? [235,235,230] : [200,50,55]), 'Fabric', cx - 3 + k, 3.4, sz, 1, 0.25, 4.5);
+  }
+  // warm stall lamp: dark pole + glowing bulb + halo
+  envMesh(boxGeo, rgb([55,55,60]), 'Metal', cx + 3.4, 1.7, sz, 0.25, 3.4, 0.25);
   const lamp = new THREE.Mesh(sphGeo, new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffb45e, emissiveIntensity: 1.6 }));
-  lamp.scale.setScalar(0.55); lamp.position.set(c[0] + 3.4, 3.6, sz); scene.add(lamp);
+  lamp.scale.setScalar(0.55); lamp.position.set(cx + 3.4, 3.6, sz); scene.add(lamp);
+  halo(cx + 3.4, 3.6, sz, 2.2, [255,167,87]);
 });
 // layered trees (trunk + 3 canopy volumes)
-const TREES = [[-72,-38],[-36,-38],[36,-38],[72,-38],[-72,38],[-36,38],[36,38],[72,38]];
+const TREES = [[-72,-38],[-36,-38],[36,-38],[72,-38],[-72,38],[-36,38],[36,38],[72,38],[-85,-45],[85,-45],[-85,45],[85,45]];
 const GREENS = [[46,125,60],[58,140,70],[38,110,55]];
 TREES.forEach((t, i) => {
   envMesh(cylGeo, rgb([110,75,40]), 'Fabric', t[0], 2, t[1], 1.2, 4, 1.2);
@@ -358,13 +480,99 @@ TREES.forEach((t, i) => {
   envMesh(sphGeo, rgb(g), 'Fabric', t[0] + 1.6, 4.4, t[1] + 0.8, 3.2, 2.6, 3.2);
   envMesh(sphGeo, rgb(g), 'Fabric', t[0] - 1.5, 4.6, t[1] - 0.7, 3.0, 2.4, 3.0);
 });
-// pond (south gap) + fountain (north gap)
-envMesh(cylGeo, rgb([70,140,200]), 'SmoothPlastic', 0, 0.15, 55, 16, 0.3, 16);
-for (const p of [[-3,52],[3,57],[5,52]]) envMesh(cylGeo, rgb([60,140,70]), 'Fabric', p[0], 0.35, p[1], 1.6, 0.15, 1.6);
-envMesh(cylGeo, rgb([180,180,175]), 'Fabric', 0, 0.6, -55, 10, 1.2, 10);
-envMesh(cylGeo, rgb([90,160,220]), 'SmoothPlastic', 0, 1.0, -55, 8, 0.5, 8);
-envMesh(cylGeo, rgb([200,200,195]), 'Fabric', 0, 2.2, -55, 1.2, 2.4, 1.2);
-envMesh(sphGeo, rgb([140,200,255]), 'SmoothPlastic', 0, 3.8, -55, 1.4, 1.4, 1.4);
+// granite fountain in the north gap (-36,-22) + pebble-rim pond in the
+// south gap (36,22) — Luau positions, not the old (0,±55) placeholders
+envMesh(cylGeo, rgb([150,148,142]), 'Fabric', -36, 0.5, -22, 8, 1, 8); // basin, r=4
+envMesh(cylGeo, rgb([120,180,220]), 'SmoothPlastic', -36, 0.65, -22, 7, 0.5, 7); // water
+envMesh(cylGeo, rgb([135,132,128]), 'Fabric', -36, 1.4, -22, 1.4, 1.4, 1.4); // column
+envMesh(cylGeo, rgb([140,195,230]), 'SmoothPlastic', -36, 2.2, -22, 2.2, 0.25, 2.2); // top water
+neonBall(-36, 2.6, -22, 0.4, [150,200,235]); // cool glow orb
+halo(-36, 2.6, -22, 2.4, [150,200,235]);
+for (let b = 0; b < 4; b++){
+  const a = b * Math.PI/2 + 0.4;
+  envMesh(sphGeo, rgb([72,126,58]), 'Fabric', -36 + Math.cos(a)*5.2, 0.55, -22 + Math.sin(a)*5.2, 1.4, 1.1, 1.4);
+}
+envMesh(cylGeo, rgb([110,175,165]), 'SmoothPlastic', 36, 0.2, 22, 9, 0.4, 9); // pond water, r=4.5
+for (let s = 0; s < 8; s++){
+  const a = s * Math.PI/4;
+  envMesh(sphGeo, rgb([130,125,118]), 'Fabric', 36 + Math.cos(a)*4.6, 0.45, 22 + Math.sin(a)*4.6, 1.1, 1.1, 1.1);
+}
+for (let l = 0; l < 3; l++){
+  const a = (l + 1) * 2.1;
+  const px = 36 + Math.cos(a)*2.2, pz = 22 + Math.sin(a)*2.2;
+  envMesh(cylGeo, rgb([80,140,70]), 'Fabric', px, 0.42, pz, 1.3, 0.12, 1.3); // lily pad
+  envMesh(sphGeo, rgb(FLOWER_COLORS[l]), 'SmoothPlastic', px, 0.6, pz, 0.3, 0.3, 0.3); // lily flower
+}
+
+// ---- plaza lights + ground life (Bases.luau: 6 lamp posts, 4 string
+// spans, belt flower beds, boulder clusters, feature paths) ----
+const LAMP_WARM = [255,167,87];
+[[-56,-8],[0,-8],[56,-8],[-56,8],[0,8],[56,8]].forEach((p, n) => {
+  const x = p[0], z = p[1], dir = z < 0 ? 1 : -1; // arm reaches toward the belt
+  envMesh(boxGeo, rgb([140,135,128]), 'Fabric', x, 0.3, z, 1.2, 0.6, 1.2); // stone base
+  envMesh(boxGeo, rgb([55,55,60]), 'Metal', x, 3.5, z, 0.35, 7, 0.35); // pole
+  envMesh(boxGeo, rgb([55,55,60]), 'Metal', x, 6.8, z + dir*0.6, 0.25, 0.25, 1.4); // arm
+  envMesh(boxGeo, rgb([55,55,60]), 'Metal', x, 6.6, z + dir*1.2, 0.12, 0.5, 0.12); // rod
+  envMesh(boxGeo, rgb([55,55,60]), 'Metal', x, 7.1, z, 0.9, 0.25, 0.9); // cap
+  neonBall(x, 6.2, z + dir*1.2, 0.7, LAMP_WARM); // warm glowing bulb
+  halo(x, 6.2, z + dir*1.2, 3.2, LAMP_WARM);
+  const pl = new THREE.PointLight(rgb(LAMP_WARM), 1.2, 18, 1);
+  pl.position.set(x, 6.2, z + dir*1.2); scene.add(pl);
+});
+// string lights: 4 catenary spans between the lamp posts, 7 bulbs each,
+// sagging 1.3 studs at mid-span (base y=7.0), colours cycle gold/pink/cyan/white
+const STRING_COLORS = [[255,200,100],[255,150,180],[140,220,255],[255,240,200]];
+[[1,-56,0,-8],[2,0,56,-8],[3,-56,0,8],[4,0,56,8]].forEach((sp) => {
+  const x1 = sp[1], x2 = sp[2], z = sp[3];
+  const mid = (x1 + x2)/2, half = (x2 - x1)/2;
+  const sagY = (x) => { const u = (x - mid)/half; return 7.0 - 1.3*(1 - u*u); };
+  const pts = [[x1, 7.0]];
+  for (let b = 1; b <= 7; b++) pts.push([x1 + 7*b, sagY(x1 + 7*b)]);
+  pts.push([x2, 7.0]);
+  for (let b = 1; b <= 7; b++){
+    const col = STRING_COLORS[(b - 1) % 4];
+    neonBall(pts[b][0], pts[b][1], z, 0.35, col);
+    halo(pts[b][0], pts[b][1], z, 1.3, col);
+  }
+  for (let s = 0; s < pts.length - 1; s++){
+    beam(pts[s][0], pts[s][1], pts[s+1][0], pts[s+1][1], z, [40,38,36]);
+  }
+});
+// belt flower beds at (±36, ±5.5)
+[[-36,-5.5],[36,-5.5],[-36,5.5],[36,5.5]].forEach((spot, bi) => {
+  const bx = spot[0], bz = spot[1];
+  envMesh(boxGeo, rgb([90,65,45]), 'Fabric', bx, 0.175, bz, 4, 0.35, 1.2);
+  for (let f = 0; f < 3; f++){
+    const fx = bx - 1.2 + f*1.2;
+    envMesh(boxGeo, rgb([70,110,55]), 'Fabric', fx, 0.65, bz, 0.12, 0.6, 0.12);
+    envMesh(sphGeo, rgb(FLOWER_COLORS[(bi + f) % 5]), 'SmoothPlastic', fx, 1.0, bz, 0.35, 0.35, 0.35);
+  }
+});
+// boulder clusters on the outer grass
+[[-95,0],[95,0],[0,-62]].forEach((cl) => {
+  [2.2, 1.5, 1.1].forEach((s, j) => {
+    envMesh(sphGeo, rgb([130,128,122]), 'Fabric', cl[0] + (j - 1)*1.6, s*0.4, cl[1] + (j % 2)*1.2, s, s*0.8, s);
+  });
+});
+// cobble paths belt -> fountain and belt -> pond
+for (let p = 0; p < 4; p++){
+  envMesh(boxGeo, rgb([138,132,120]), 'Fabric', -36, 0.06, -5 - p*3.2, 4, 0.12, 3);
+  envMesh(boxGeo, rgb([138,132,120]), 'Fabric', 36, 0.06, 5 + p*3.2, 4, 0.12, 3);
+}
+
+// dusk lighting for the env views: sun low + warm, sky deep blue to warm
+// horizon, so the neon trim and the lamp/string lights actually read.
+function setDusk(){
+  const cv = document.createElement('canvas'); cv.width = 4; cv.height = 256;
+  const g = cv.getContext('2d'); const gr = g.createLinearGradient(0,0,0,256);
+  gr.addColorStop(0, '#2c3e6e'); gr.addColorStop(0.55, '#7a6a9e');
+  gr.addColorStop(0.8, '#e8906a'); gr.addColorStop(1, '#ffc98a');
+  g.fillStyle = gr; g.fillRect(0,0,4,256);
+  scene.background = new THREE.CanvasTexture(cv);
+  scene.fog = new THREE.Fog(0x8a7a9e, 90, 220);
+  sun.intensity = 0.7; sun.color.set(0xffb070);
+  hemi.intensity = 0.45;
+}
 
 // ---- views ----
 const beltY = 2;
@@ -395,6 +603,20 @@ if (VIEW === 'closeup'){
   const s = buildSnack(burger, 0); scene.add(s);
   camera.position.set(7, 6.5, 13);
   camera.lookAt(0, 4.2, 0);
+} else if (VIEW === 'env'){
+  // full environment, no snack row: wide shot over the plaza — belt,
+  // north + south bases, lamp posts and string lights in frame
+  document.getElementById('viewname').textContent = 'env — plaza + bases';
+  setDusk();
+  camera.position.set(44, 28, 54);
+  camera.lookAt(-8, 2, -12);
+} else if (VIEW === 'base'){
+  // closeup from the belt looking at north base 2 (blue): arch, neon
+  // trim, runner and wall crown in frame
+  document.getElementById('viewname').textContent = 'base — BASE 2 closeup';
+  setDusk();
+  camera.position.set(-18, 9, 4);
+  camera.lookAt(-18, 3, -22);
 } else if (VIEW === 'hero'){
   placeRow();
   camera.position.set(38, 22, 42);
