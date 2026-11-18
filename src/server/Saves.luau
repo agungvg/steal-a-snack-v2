@@ -13,7 +13,21 @@
 local DataStoreService = game:GetService("DataStoreService")
 
 local Saves = {}
-local store = DataStoreService:GetDataStore("StealASnackV2")
+-- GetDataStore throws in Studio when the place is unpublished ("You must
+-- publish this place to the web to access DataStore"), which kills the whole
+-- module load and, through require(), the server init. Wrap it: when the
+-- store is unavailable, saves are disabled and progress is session-only.
+local store: DataStore? = nil
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore("StealASnackV2")
+	end)
+	if ok then
+		store = result
+	else
+		warn("[Saves] DataStore unavailable (place unpublished?): " .. tostring(result) .. " — saves disabled, progress is session-only")
+	end
+end
 
 export type SnackRow = {
 	snackKey: string,
@@ -45,6 +59,9 @@ function Saves.unpack(data: { [string]: any }): { cash: number, rebirths: number
 end
 
 function Saves.load(player: Player): { [string]: any }?
+	if store == nil then
+		return nil
+	end
 	local ok, result = pcall(function()
 		return store:GetAsync("player_" .. tostring(player.UserId))
 	end)
@@ -59,6 +76,9 @@ function Saves.load(player: Player): { [string]: any }?
 end
 
 function Saves.save(player: Player, data: { [string]: any }): boolean
+	if store == nil then
+		return false
+	end
 	local ok, err = pcall(function()
 		store:SetAsync("player_" .. tostring(player.UserId), data)
 	end)
