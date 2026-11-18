@@ -31,6 +31,8 @@ export type Walker = {
 local walkers: { Walker } = {}
 local boosted = false
 local running = false
+local spawnCounter = 0 -- rotates the caption label tier (0/1/2) so
+-- adjacent walkers' name labels sit at different heights.
 
 local function rollWalker(parent: Instance): Walker?
 	if #walkers >= Config.MAX_WALKERS then
@@ -40,7 +42,9 @@ local function rollWalker(parent: Instance): Walker?
 	local def = Config.pickSnackOfRarity(rarity, math.random())
 	local variant = Config.pickVariant(math.random())
 	local groundPos = Vector3.new(Config.BELT_MIN_X, Config.BELT_TOP_Y, Config.BELT_Z)
-	local model = CharacterFactory.buildSnack(def, variant.name, groundPos, math.pi / 2, parent)
+	local labelTier = spawnCounter % 3
+	spawnCounter += 1
+	local model = CharacterFactory.buildSnack(def, variant.name, groundPos, math.pi / 2, parent, labelTier)
 	local walker: Walker = {
 		model = model,
 		snackKey = def.key,

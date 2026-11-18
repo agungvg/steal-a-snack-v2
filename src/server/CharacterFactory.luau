@@ -9,7 +9,9 @@
 -- colours are the food's own true colours (cheese is YELLOW).
 --
 -- PUBLIC API (contract — signatures kept exactly):
---   buildSnack(def, variantName, groundPos, headingRad, parent) -> Model
+--   buildSnack(def, variantName, groundPos, headingRad, parent, labelTier?) -> Model
+--       labelTier (0/1/2, optional) staggers the caption height so
+--       bunched-up walkers' name labels do not overlap.
 --   attachClick(model, reach, handler) -> ClickDetector
 --   setCaption(model, line1, line2) -> ()
 --   countParts(model) -> number
@@ -596,7 +598,8 @@ function CharacterFactory.buildSnack(
 	variantName: string,
 	groundPos: Vector3,
 	headingRad: number,
-	parent: Instance
+	parent: Instance,
+	labelTier: number?
 ): Model
 	local model = Instance.new("Model")
 	model.Name = def.displayName .. "_" .. variantName
@@ -633,13 +636,16 @@ function CharacterFactory.buildSnack(
 	disc.Position = groundPos + Vector3.new(0, 0.07, 0)
 	disc.Parent = model
 
-	-- Floating label above the snack.
+	-- Floating label above the snack. labelTier staggers the caption
+	-- height (0/1/2 -> +0/+1.6/+3.2 studs) so two walkers bunched up
+	-- on the belt do not paint their name labels on top of each other.
+	-- Spawner rotates the tier per spawn; callers that omit it get 0.
 	local body = model:FindFirstChild("Body")
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "Caption"
 	billboard.Adornee = body
 	billboard.Size = UDim2.new(0, 150, 0, 56)
-	billboard.StudsOffsetWorldSpace = Vector3.new(0, def.size * 0.9, 0)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, def.size * 0.9 + (labelTier or 0) * 1.6, 0)
 	billboard.AlwaysOnTop = true
 	billboard.Parent = model
 

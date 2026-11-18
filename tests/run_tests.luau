@@ -252,6 +252,21 @@ local infoLine = board and board:FindFirstChild("InfoLine")
 check("factory: setCaption line1", nameLine ~= nil and nameLine.Text == "Hello")
 check("factory: setCaption line2", infoLine ~= nil and infoLine.Text == "$5/s")
 
+-- Label stagger: labelTier 0/1/2 lifts the caption by 0/1.6/3.2 studs,
+-- so walkers bunched up on the belt keep readable labels.
+local function captionY(tier)
+	local m = CharacterFactory.buildSnack(fry, "None", Vector3.new(0, 2, 0), 0, world, tier)
+	local b = m:FindFirstChild("Caption")
+	return b ~= nil and b.StudsOffsetWorldSpace.Y or -1
+end
+local y0 = captionY(0)
+local y1 = captionY(1)
+local y2 = captionY(2)
+check("factory: labelTier 0 baseline", y0 > 0, tostring(y0))
+check("factory: labelTier 1 is +1.6", approx(y1 - y0, 1.6), tostring(y1 - y0))
+check("factory: labelTier 2 is +3.2", approx(y2 - y0, 3.2), tostring(y2 - y0))
+check("factory: labelTier omitted is tier 0", approx(captionY(nil) - y0, 0))
+
 -- ------------------------------------------------------------------ Weather
 check("weather: 5 settings", Weather.SETTINGS.Sunny ~= nil and Weather.SETTINGS.Rain ~= nil and Weather.SETTINGS.Storm ~= nil and Weather.SETTINGS.Fog ~= nil and Weather.SETTINGS.Snow ~= nil)
 check("weather: Sunny brightness 2.6", Weather.settingsFor("Sunny").brightness == 2.6)
@@ -328,6 +343,16 @@ for _, d in ipairs(baseModel:GetDescendants()) do
 	end
 end
 check("bases: front glow is Neon", frontGlow ~= nil and frontGlow.Material == Enum.Material.Neon)
+-- Base SHAPE (not just trim): stepped gable peak, splayed wing walls,
+-- and a pergola roof with slats — slots stay visible (back row sits in
+-- a slat gap; front two-thirds fully open).
+check("bases: base has gable peak", hasDesc(baseModel, "GableStep1") and hasDesc(baseModel, "GableStep3"))
+check("bases: base has wing walls", hasDesc(baseModel, "WingWall-1") and hasDesc(baseModel, "WingWall1"))
+check("bases: base has pergola roof", hasDesc(baseModel, "RoofSlat1") and hasDesc(baseModel, "RoofSlat3"))
+check("bases: base has roof front beam", hasDesc(baseModel, "RoofBeamFront"))
+check("bases: base has roof neon front", hasDesc(baseModel, "RoofNeonFront"))
+check("bases: base has roof posts", hasDesc(baseModel, "RoofPost-1") and hasDesc(baseModel, "RoofPost1"))
+check("bases: stall has canopy roof", hasDesc(baseModel, "StallCanopy"))
 
 -- Full build: 8 bases + plaza lights + ground life.
 local envFolder = Bases.build(envWorld)
@@ -345,6 +370,24 @@ check("bases: pond present", hasDesc(envFolder, "PondWater"))
 check("bases: belt flower beds 4", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 13) == "BeltFlowerBed" end) == 4)
 check("bases: rocks present", hasDesc(envFolder, "Rock1_1"))
 check("bases: feature paths present", hasDesc(envFolder, "FountainPath1") and hasDesc(envFolder, "PondPath1"))
+-- Belt unmissable: cream lane, gold Neon side edges, sign gates, grass
+-- chevrons, cobble promenade, round belt bushes (Balls, never Blocks).
+check("bases: belt lane present", hasDesc(envFolder, "BeltLane"))
+check("bases: belt neon edges", hasDesc(envFolder, "BeltEdgeNorth") and hasDesc(envFolder, "BeltEdgeSouth"))
+check("bases: belt sign gates", hasDesc(envFolder, "BeltSignWest") and hasDesc(envFolder, "BeltSignEast"))
+check("bases: belt arrows 10", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 9) == "BeltArrow" end) == 10)
+check("bases: promenade panels 16", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 14) == "PromenadePanel" end) == 16)
+check("bases: belt bushes 4", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 9) == "BeltBushA" end) == 4)
+-- Carnival landmarks: ferris wheel (west) + tower (east), background.
+check("bases: ferris wheel present", hasDesc(envFolder, "FerrisHub") and hasDesc(envFolder, "FerrisPlatform"))
+check("bases: ferris rim 12", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 9) == "FerrisRim" end) == 12)
+check("bases: ferris bulbs 12", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 10) == "FerrisBulb" end) == 12)
+check("bases: ferris cabins 8", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 11) == "FerrisCabin" and string.find(d.Name, "Bulb") == nil end) == 8)
+check("bases: tower present", hasDesc(envFolder, "TowerTier1") and hasDesc(envFolder, "TowerTier3"))
+check("bases: tower trim 3", countDesc(envFolder, function(d) return string.sub(d.Name, 1, 9) == "TowerTrim" end) == 3)
+check("bases: tower beacon present", hasDesc(envFolder, "TowerBeacon"))
+-- Light budget: 6 plaza + 8 stall + 1 fountain + 1 tower beacon = 16.
+check("bases: total PointLights 16", countDesc(envFolder, function(d) return d.ClassName == "PointLight" end) == 16)
 -- Rebuild is idempotent (old folder destroyed, one folder left).
 local envFolder2 = Bases.build(envWorld)
 check("bases: rebuild idempotent", envFolder2 ~= nil and countDesc(envWorld, function(d) return d.Name == "BasesEnv" end) == 1)
