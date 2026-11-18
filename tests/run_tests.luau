@@ -185,6 +185,35 @@ for _, def in ipairs(Config.SNACKS) do
 	check("factory: " .. def.key .. " has caption", model:FindFirstChild("Caption") ~= nil)
 	check("factory: " .. def.key .. " tag SnackKey", model:GetAttribute("SnackKey") == def.key)
 	check("factory: " .. def.key .. " tag Variant", model:GetAttribute("Variant") == "None")
+	-- FOOD-FIRST: no generic humanoid core anywhere.
+	check("factory: " .. def.key .. " no Head", model:FindFirstChild("Head") == nil)
+	check("factory: " .. def.key .. " no ArmL", model:FindFirstChild("ArmL") == nil)
+	check("factory: " .. def.key .. " no LegL", model:FindFirstChild("LegL") == nil)
+	check("factory: " .. def.key .. " no ShoeL", model:FindFirstChild("ShoeL") == nil)
+	-- The food IS the body: a part named "Body" is the main mass.
+	local bodyPart = model:FindFirstChild("Body")
+	check("factory: " .. def.key .. " has Body (food mass)", bodyPart ~= nil)
+	-- Signature food part per snack.
+	local signature = {
+		soggy_fry = "FryStick1",
+		noodle_ned = "NoodleSwirl1",
+		dancing_dumpling = "Pleat1",
+		turbo_taco = "Lettuce1",
+		lord_lasagna = "SauceLayer",
+		queen_queso = "CheeseHole1",
+		king_kebab = "Skewer",
+		baron_burger = "Sesame1",
+		eternal_ramen = "Egg",
+	}
+	local sig = signature[def.key]
+	if sig then
+		check("factory: " .. def.key .. " signature part " .. sig, model:FindFirstChild(sig) ~= nil)
+	end
+	-- Queen Queso's body must be YELLOW (cheese), never green.
+	if def.key == "queen_queso" and bodyPart ~= nil then
+		local c = bodyPart.Color
+		check("factory: queen_queso Body is yellow", c.R > 0.8 and c.G > 0.7 and c.B < 0.3, tostring(c.R) .. "," .. tostring(c.G) .. "," .. tostring(c.B))
+	end
 end
 
 -- Heading: with heading PI/2 the face should point along +X.
