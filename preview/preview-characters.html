@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Steal a Snack v2 — preview</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #9ec7ee; }
+  #c { display: block; width: 100%; height: 100%; }
+  #hud { position: absolute; left: 10px; top: 10px; font: 13px/1.4 system-ui, sans-serif; color: #223; background: rgba(255,255,255,.82); padding: 6px 10px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">Steal a Snack v2 — <span id="viewname"></span></div>
+<script src="three.min.js"></script>
+<script>
+// Steal a Snack v2 preview — written fresh for v2.
+// Mirrors the v2 CharacterFactory's parametric system: every offset is in
+// units of u = def.size, positions are (fwd, up, right) in the character's
+// local frame (forward = +Z, up = +Y, right = +X), sizes are (x, y, z).
+// Data transcribed from src/shared/Config.luau + the v2 CharacterFactory.
+
+const SNACKS = [
+  { key:'soggy_fry',       name:'Soggy Fry',        rarity:'Common',    rate:1,   price:50,    color:[255,196,66],  size:3.3, iris:[90,55,20],   mouth:'smile' },
+  { key:'noodle_ned',      name:'Noodle Ned',       rarity:'Common',    rate:2,   price:100,   color:[255,214,130], size:3.6, iris:[70,45,25],   mouth:'smile' },
+  { key:'dancing_dumpling',name:'Dancing Dumpling', rarity:'Rare',      rate:5,   price:300,   color:[255,240,200], size:3.9, iris:[40,80,160],  mouth:'open'  },
+  { key:'turbo_taco',      name:'Turbo Taco',       rarity:'Rare',      rate:8,   price:500,   color:[255,170,40],  size:4.2, iris:[50,120,50],  mouth:'smirk' },
+  { key:'lord_lasagna',    name:'Lord Lasagna',     rarity:'Epic',      rate:15,  price:1500,  color:[230,120,60],  size:4.5, iris:[110,60,20],  mouth:'smile' },
+  { key:'queen_queso',     name:'Queen Queso',      rarity:'Epic',      rate:20,  price:2500,  color:[255,215,0],   size:4.8, iris:[120,60,160], mouth:'smile' },
+  { key:'king_kebab',      name:'King Kebab',       rarity:'Legendary', rate:40,  price:6000,  color:[180,60,60],   size:5.1, iris:[170,110,20], mouth:'smile' },
+  { key:'baron_burger',    name:'Baron Burger',     rarity:'Legendary', rate:60,  price:10000, color:[150,90,40],   size:5.4, iris:[80,50,25],   mouth:'smile' },
+  { key:'eternal_ramen',   name:'The Eternal Ramen',rarity:'Mythic',    rate:120, price:25000, color:[255,80,80],   size:6.0, iris:[160,40,30],  mouth:'smile' },
+];
+const RARITY = { Common:[180,180,180], Rare:[80,170,255], Epic:[180,90,255], Legendary:[255,170,0], Mythic:[255,60,120] };
+
+// ---- colour helpers (same math as the factory's shade()) ----
+function rgb(t){ return new THREE.Color(t[0]/255, t[1]/255, t[2]/255); }
+function shade(c, f){
+  const adj = v => {
+    let out = f >= 0 ? v + (1 - v) * f : v * (1 + f);
+    return Math.floor(Math.min(235, Math.max(25, out * 255)) + 0.5) / 255;
+  };
+  return new THREE.Color(adj(c.r), adj(c.g), adj(c.b));
+}
+const MAT = { Fabric:{rough:0.9, metal:0}, SmoothPlastic:{rough:0.35, metal:0}, Metal:{rough:0.35, metal:0.8}, Leather:{rough:0.7, metal:0}, Neon:{rough:0.4, metal:0, emissive:1} };
+function mat(color, kind, transp){
+  const m = MAT[kind] || MAT.SmoothPlastic;
+  const o = new THREE.MeshStandardMaterial({ color, roughness:m.rough, metalness:m.metal });
+  if (transp) { o.transparent = true; o.opacity = 1 - transp; }
+  if (m.emissive) { o.emissive = color; o.emissiveIntensity = 0.7; }
+  return o;
+}
+
+// ---- scene ----
+const params = new URLSearchParams(location.search);
+const VIEW = params.get('view') || 'group';
+document.getElementById('viewname').textContent = VIEW;
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+
+const scene = new THREE.Scene();
+// warm sky gradient
+(function(){
+  const cv = document.createElement('canvas'); cv.width = 4; cv.height = 256;
+  const g = cv.getContext('2d'); const gr = g.createLinearGradient(0,0,0,256);
+  gr.addColorStop(0, '#7fb2e8'); gr.addColorStop(0.55, '#a8cdee'); gr.addColorStop(1, '#ffe9c4');
+  g.fillStyle = gr; g.fillRect(0,0,4,256);
+  const tex = new THREE.CanvasTexture(cv);
+  scene.background = tex;
+})();
+scene.fog = new THREE.Fog(0xcfe0f2, 90, 220);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 500);
+
+// warm sunny lighting (brighter + warmer, per the v2 lighting retune)
+const hemi = new THREE.HemisphereLight(0xbcd6ff, 0x8a7a5a, 0.95); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffe8c0, 1.5);
+sun.position.set(40, 60, 35); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -80; sun.shadow.camera.right = 80;
+sun.shadow.camera.top = 80; sun.shadow.camera.bottom = -80;
+sun.shadow.camera.far = 200;
+scene.add(sun);
+scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+
+// ---- part helpers (character-local frame: P(fwd, up, right), S(x, y, z)) ----
+function ball(group, u, fwd, up, right, sx, sy, sz, color, kind, transp, rx, ry, rz){
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 18), mat(color, kind, transp));
+  m.position.set(right*u, up*u, fwd*u);
+  m.scale.set(sx*u/2, sy*u/2, sz*u/2);
+  if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; if (rz) m.rotation.z = rz;
+  m.castShadow = true; m.receiveShadow = true;
+  group.add(m); return m;
+}
+function box(group, u, fwd, up, right, sx, sy, sz, color, kind, transp, rx, ry, rz){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat(color, kind, transp));
+  m.position.set(right*u, up*u, fwd*u);
+  m.scale.set(sx*u, sy*u, sz*u);
+  if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; if (rz) m.rotation.z = rz;
+  m.castShadow = true; m.receiveShadow = true;
+  group.add(m); return m;
+}
+function cyl(group, u, fwd, up, right, len, dia, color, kind, transp, axis, tilt){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(dia*u/2, dia*u/2, len*u, 20), mat(color, kind, transp));
+  m.position.set(right*u, up*u, fwd*u);
+  if (axis === 'X') { m.rotation.z = Math.PI/2 + (tilt||0); }
+  else if (axis === 'Z') { m.rotation.x = Math.PI/2 + (tilt||0); }
+  else if (tilt) { m.rotation.z = tilt; }
+  m.castShadow = true; m.receiveShadow = true;
+  group.add(m); return m;
+}
+
+// ---- face (eye line at head centre, up = 1.00u) ----
+function addEye(g, u, side, body, bodyT, iris){
+  const x = side * 0.20;
+  ball(g, u, 0.27, 1.00, x, 0.20, 0.27, 0.09, rgb([235,235,230]), 'SmoothPlastic');            // white
+  ball(g, u, 0.295, 0.99, x, 0.15, 0.21, 0.04, rgb([25,25,30]), 'SmoothPlastic');               // outline
+  ball(g, u, 0.305, 0.99, x, 0.13, 0.19, 0.05, rgb(iris), 'SmoothPlastic');                     // iris
+  ball(g, u, 0.325, 0.99, x, 0.065, 0.09, 0.04, rgb([20,20,25]), 'SmoothPlastic');               // pupil
+  ball(g, u, 0.34, 1.05, x + side*0.035, 0.04, 0.05, 0.03, rgb([235,235,235]), 'SmoothPlastic'); // glint
+  ball(g, u, 0.30, 1.10, x, 0.22, 0.09, 0.05, body, 'Fabric', bodyT);                            // lid
+}
+function addFace(g, u, body, bodyHi, bodyLo, bodyT, iris, mouth){
+  // tapered brows, left a touch higher (asymmetry = life)
+  ball(g, u, 0.29, 1.16, -0.20, 0.17, 0.04, 0.05, rgb([60,35,20]), 'Fabric', 0, 0, 0, 0.16);
+  ball(g, u, 0.29, 1.14,  0.20, 0.17, 0.04, 0.05, rgb([60,35,20]), 'Fabric', 0, 0, 0, -0.08);
+  addEye(g, u, -1, body, bodyT, iris);
+  addEye(g, u,  1, body, bodyT, iris);
+  // modelled nose: bridge + tip (real side-view relief)
+  box(g, u, 0.315, 0.93, 0, 0.05, 0.12, 0.05, bodyLo, 'Fabric', bodyT);
+  ball(g, u, 0.335, 0.87, 0, 0.09, 0.07, 0.08, body, 'Fabric', bodyT);
+  // blush cheeks
+  ball(g, u, 0.29, 0.86, -0.27, 0.10, 0.07, 0.04, rgb([235,120,130]), 'SmoothPlastic');
+  ball(g, u, 0.29, 0.86,  0.27, 0.10, 0.07, 0.04, rgb([235,120,130]), 'SmoothPlastic');
+  // mouth
+  const mc = rgb([90,30,30]);
+  if (mouth === 'open'){
+    ball(g, u, 0.31, 0.75, 0, 0.16, 0.12, 0.05, rgb([70,20,25]), 'SmoothPlastic');
+    ball(g, u, 0.325, 0.71, 0, 0.09, 0.06, 0.04, rgb([235,120,140]), 'SmoothPlastic');
+  } else if (mouth === 'smirk'){
+    ball(g, u, 0.315, 0.76, 0, 0.15, 0.035, 0.04, mc, 'SmoothPlastic', 0, 0, 0, 0.18);
+    ball(g, u, 0.31, 0.79, -0.085, 0.04, 0.04, 0.04, mc, 'SmoothPlastic');
+    ball(g, u, 0.31, 0.74,  0.085, 0.04, 0.04, 0.04, mc, 'SmoothPlastic');
+  } else {
+    ball(g, u, 0.315, 0.76, 0, 0.15, 0.035, 0.04, mc, 'SmoothPlastic');
+    ball(g, u, 0.31, 0.775, -0.085, 0.04, 0.04, 0.04, mc, 'SmoothPlastic');
+    ball(g, u, 0.31, 0.775,  0.085, 0.04, 0.04, 0.04, mc, 'SmoothPlastic');
+  }
+}
+
+// ---- core body: oval head + oval body + jaw, tapered bent arms, fingered hands ----
+function addCore(g, u, def, body, bodyHi, bodyLo, bodyT, rarity, armsUp){
+  ball(g, u, 0, 0.56, 0, 0.98, 0.66, 0.76, body, 'Fabric', bodyT);                 // body
+  ball(g, u, 0.02, 1.00, 0, 0.80, 0.64, 0.64, bodyHi, 'Fabric', bodyT, -0.02, 0, 0.05); // head, slight tilt
+  ball(g, u, 0.05, 0.72, 0, 0.50, 0.22, 0.50, bodyLo, 'Fabric', bodyT);            // jaw step
+  ball(g, u, 0.33, 0.52, 0, 0.10, 0.10, 0.06, rgb(rarity), 'Neon');                // chest gem
+  addFace(g, u, body, bodyHi, bodyLo, bodyT, def.iris, def.mouth);
+  // legs + shoes
+  for (const side of [-1, 1]){
+    cyl(g, u, 0, 0.20, side*0.20, 0.24, 0.17, bodyLo, 'Fabric', bodyT, 'Y');
+    ball(g, u, 0.03, 0.07, side*0.20, 0.20, 0.14, 0.30, rgb([40,35,30]), 'Leather');
+  }
+  // arms + hands (palm + 3 fingers + thumb)
+  for (const side of [-1, 1]){
+    let handY, handFwd; const handX = side * 0.70;
+    if (armsUp){
+      cyl(g, u, 0, 0.90, side*0.60, 0.30, 0.15, body, 'Fabric', bodyT, 'X', side*1.0);
+      cyl(g, u, 0.06, 1.10, side*0.70, 0.28, 0.12, bodyHi, 'Fabric', bodyT, 'X', 0);
+      handY = 1.24; handFwd = 0.10;
+    } else {
+      const drop = side < 0 ? 0.02 : 0;
+      cyl(g, u, 0.02, 0.625 - drop, side*0.585, 0.30, 0.15, body, 'Fabric', bodyT, 'X', -side*0.35);
+      cyl(g, u, 0.13, 0.42 - drop, side*0.685, 0.28, 0.12, bodyHi, 'Fabric', bodyT, 'X', 0);
+      handY = 0.33 - drop; handFwd = 0.24;
+    }
+    ball(g, u, handFwd, handY, handX, 0.13, 0.13, 0.10, bodyHi, 'Fabric', bodyT); // palm
+    for (let i = -1; i <= 1; i++){
+      if (armsUp) cyl(g, u, handFwd, handY + 0.10, handX + i*0.045, 0.10, 0.045, bodyHi, 'Fabric', bodyT, 'Y');
+      else cyl(g, u, handFwd + 0.06, handY - 0.02, handX + i*0.045, 0.10, 0.045, bodyHi, 'Fabric', bodyT, 'Z');
+    }
+    if (armsUp) cyl(g, u, handFwd, handY + 0.02, handX - side*0.08, 0.09, 0.05, bodyHi, 'Fabric', bodyT, 'Y', side*0.5);
+    else cyl(g, u, handFwd + 0.02, handY + 0.02, handX - side*0.075, 0.09, 0.05, bodyHi, 'Fabric', bodyT, 'Z', side*0.6);
+  }
+}
+
+// ---- floating name label ----
+function addLabel(g, u, def){
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128;
+  const c2 = cv.getContext('2d');
+  c2.fillStyle = 'rgba(20,20,30,0.72)'; c2.beginPath(); c2.roundRect(6, 6, 500, 116, 18); c2.fill();
+  c2.fillStyle = '#ffffff'; c2.font = 'bold 44px system-ui, sans-serif'; c2.textAlign = 'center';
+  c2.fillText(def.name, 256, 52);
+  c2.fillStyle = '#ffd76a'; c2.font = 'bold 36px system-ui, sans-serif';
+  c2.fillText('$' + def.price.toLocaleString() + '  •  $' + def.rate + '/s', 256, 102);
+  const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sp.scale.set(3.2*u/3, 0.8*u/3, 1); sp.position.set(0, 2.05*u, 0);
+  g.add(sp);
+}
+
+// ---- signature decor (transcribed from the v2 CharacterFactory) ----
+const DECOR = {
+  soggy_fry(g, u, body){
+    for (let i = 0; i < 3; i++){
+      const x = [-0.18, 0, 0.18][i], tilt = (i - 1) * 0.18;
+      box(g, u, -0.05, 1.45, x, 0.09, 0.55, 0.05, rgb([235,210,90]), 'Fabric', 0, 0, 0, tilt);
+    }
+    ball(g, u, 0.28, 1.28, 0.12, 0.06, 0.06, 0.06, rgb([220,40,40]), 'SmoothPlastic');
+    ball(g, u, 0.36, 0.80, -0.15, 0.07, 0.07, 0.07, rgb([220,40,40]), 'SmoothPlastic');
+    box(g, u, 0, 0.30, 0, 0.85, 0.35, 0.65, rgb([205,150,100]), 'Fabric');
+    box(g, u, 0.34, 0.32, 0, 0.50, 0.20, 0.03, rgb([235,235,230]), 'Fabric');
+  },
+  noodle_ned(g, u){
+    ball(g, u, 0, 1.32, -0.12, 0.45, 0.12, 0.45, rgb([235,200,120]), 'Fabric');
+    ball(g, u, 0.02, 1.34, 0.14, 0.45, 0.12, 0.45, rgb([255,220,150]), 'Fabric');
+    ball(g, u, 0.15, 1.36, -0.20, 0.05, 0.05, 0.05, rgb([200,30,30]), 'SmoothPlastic');
+    ball(g, u, 0.15, 1.37, 0.20, 0.05, 0.05, 0.05, rgb([200,30,30]), 'SmoothPlastic');
+    ball(g, u, 0.05, 1.55, -0.08, 0.09, 0.09, 0.09, rgb([235,235,235]), 'SmoothPlastic', 0.5);
+    ball(g, u, 0.05, 1.70, 0.08, 0.09, 0.09, 0.09, rgb([235,235,235]), 'SmoothPlastic', 0.5);
+  },
+  dancing_dumpling(g, u){
+    for (const x of [-0.20, 0, 0.20]) ball(g, u, 0.05, 1.33, x, 0.10, 0.08, 0.08, rgb([235,245,220]), 'Fabric');
+    for (const s of [-1, 1]) ball(g, u, 0.10, 0.95, s*0.42, 0.05, 0.05, 0.05, rgb([230,190,80]), 'Metal');
+    ball(g, u, 0, 0.34, 0, 1.05, 0.12, 0.85, rgb([235,220,230]), 'Fabric');
+    ball(g, u, 0.15, 0.30, 0, 0.50, 0.08, 0.40, rgb([255,235,240]), 'Fabric');
+  },
+  turbo_taco(g, u){
+    ball(g, u, -0.12, 1.05, 0, 0.85, 0.70, 0.55, rgb([230,140,30]), 'Fabric');
+    ball(g, u, 0.30, 1.30, -0.20, 0.06, 0.06, 0.06, rgb([200,40,25]), 'SmoothPlastic');
+    ball(g, u, 0.37, 0.78, 0.18, 0.06, 0.06, 0.06, rgb([200,40,25]), 'SmoothPlastic');
+    ball(g, u, 0.20, 1.30, 0.25, 0.16, 0.10, 0.06, rgb([140,200,60]), 'SmoothPlastic', 0, 0, 0, 0.4);
+    ball(g, u, 0.10, 1.28, -0.22, 0.14, 0.08, 0.10, rgb([235,235,230]), 'SmoothPlastic');
+  },
+  lord_lasagna(g, u){
+    cyl(g, u, 0, 1.34, 0, 0.12, 0.62, rgb([235,235,230]), 'Fabric', 0, 'Y');
+    ball(g, u, 0, 1.44, -0.15, 0.16, 0.16, 0.16, rgb([235,235,230]), 'Fabric');
+    ball(g, u, 0, 1.44, 0.15, 0.16, 0.16, 0.16, rgb([235,235,230]), 'Fabric');
+    ball(g, u, 0, 1.52, 0, 0.55, 0.35, 0.55, rgb([235,235,230]), 'Fabric');
+    ball(g, u, 0.37, 0.85, 0.18, 0.07, 0.07, 0.07, rgb([40,40,45]), 'SmoothPlastic');
+    ball(g, u, 0.36, 0.95, -0.20, 0.06, 0.06, 0.06, rgb([235,200,60]), 'SmoothPlastic');
+    ball(g, u, 0.37, 0.70, 0.10, 0.06, 0.06, 0.06, rgb([235,200,60]), 'SmoothPlastic');
+  },
+  queen_queso(g, u){
+    cyl(g, u, 0, 1.36, 0, 0.10, 0.55, rgb([230,190,80]), 'Metal', 0, 'Y');
+    for (const x of [-0.18, 0, 0.18]) ball(g, u, 0, 1.46, x, 0.07, 0.07, 0.07, rgb([230,190,80]), 'Metal');
+    box(g, u, -0.38, 0.75, 0, 0.85, 0.75, 0.06, rgb([180,30,40]), 'Fabric');
+    cyl(g, u, 0, 0.88, 0, 0.05, 0.50, rgb([230,190,80]), 'Metal', 0, 'Y');
+    for (const s of [-1, 1]) ball(g, u, 0.10, 0.95, s*0.42, 0.05, 0.05, 0.05, rgb([200,30,50]), 'SmoothPlastic');
+  },
+  king_kebab(g, u){
+    cyl(g, u, 0, 0.56, 0, 0.10, 1.00, rgb([220,180,120]), 'Fabric', 0, 'Y');
+    box(g, u, 0.38, 0.60, -0.12, 0.04, 0.20, 0.03, rgb([90,50,30]), 'Fabric', 0, 0, 0, 0.15);
+    box(g, u, 0.38, 0.60, 0.12, 0.04, 0.20, 0.03, rgb([90,50,30]), 'Fabric', 0, 0, 0, -0.15);
+    ball(g, u, 0, 1.55, -0.06, 0.09, 0.09, 0.09, rgb([200,200,200]), 'SmoothPlastic', 0.5);
+    ball(g, u, 0, 1.68, 0.06, 0.09, 0.09, 0.09, rgb([200,200,200]), 'SmoothPlastic', 0.5);
+    cyl(g, u, 0, 1.50, 0, 0.70, 0.04, rgb([180,180,180]), 'Metal', 0, 'Y');
+  },
+  baron_burger(g, u){
+    ball(g, u, 0.02, 1.30, 0, 0.82, 0.35, 0.66, rgb([200,130,60]), 'Fabric');
+    for (const x of [-0.15, 0, 0.15]) ball(g, u, 0.15, 1.45, x, 0.04, 0.04, 0.04, rgb([235,230,190]), 'SmoothPlastic');
+    cyl(g, u, 0.28, 1.38, 0.28, 0.04, 0.18, rgb([90,160,60]), 'SmoothPlastic', 0, 'Y', 0.4);
+    ball(g, u, 0.25, 1.36, -0.28, 0.12, 0.04, 0.12, rgb([235,235,230]), 'SmoothPlastic');
+    ball(g, u, 0.37, 0.88, 0.15, 0.06, 0.06, 0.06, rgb([235,210,40]), 'SmoothPlastic');
+  },
+  eternal_ramen(g, u){
+    box(g, u, 0.30, 1.05, -0.30, 0.25, 0.30, 0.03, rgb([30,60,35]), 'Fabric', 0, 0, 0.4, 0);
+    cyl(g, u, 0.37, 0.55, 0, 0.05, 0.28, rgb([235,190,180]), 'SmoothPlastic', 0, 'Z');
+    cyl(g, u, 0.05, 1.55, -0.05, 0.80, 0.035, rgb([170,120,70]), 'Fabric', 0, 'X', 0.25);
+    cyl(g, u, 0.05, 1.55, 0.05, 0.80, 0.035, rgb([170,120,70]), 'Fabric', 0, 'X', -0.25);
+    ball(g, u, 0.05, 1.60, -0.08, 0.09, 0.09, 0.09, rgb([235,235,235]), 'SmoothPlastic', 0.5);
+    ball(g, u, 0.05, 1.75, 0.08, 0.09, 0.09, 0.09, rgb([235,235,235]), 'SmoothPlastic', 0.5);
+    ball(g, u, 0.36, 0.86, -0.18, 0.16, 0.05, 0.16, rgb([220,60,20]), 'SmoothPlastic');
+  },
+};
+
+// ---- build one snack (group at groundPos, facing +Z) ----
+function buildSnack(def, groundY){
+  const u = def.size;
+  const g = new THREE.Group();
+  const body = rgb(def.color), bodyHi = shade(body, 0.28), bodyLo = shade(body, -0.30);
+  const rarity = RARITY[def.rarity];
+  addCore(g, u, def, body, bodyHi, bodyLo, 0, rarity, def.key === 'dancing_dumpling');
+  DECOR[def.key](g, u, body);
+  // rarity disc under the feet
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.85*u, 0.85*u, 0.06*u, 32), mat(rgb(rarity), 'Neon', 0.35));
+  disc.position.y = 0.03*u; disc.receiveShadow = true; g.add(disc);
+  addLabel(g, u, def);
+  g.position.y = groundY;
+  return g;
+}
+
+// ---- environment (v2 layout: belt X -64..64 at Z=0, 8 bases, plaza) ----
+function envMesh(geo, color, kind, x, y, z, sx, sy, sz, ry){
+  const m = new THREE.Mesh(geo, mat(color, kind));
+  m.position.set(x, y, z); if (sx) m.scale.set(sx, sy, sz); if (ry) m.rotation.y = ry;
+  m.castShadow = true; m.receiveShadow = true; scene.add(m); return m;
+}
+const boxGeo = new THREE.BoxGeometry(1,1,1), sphGeo = new THREE.SphereGeometry(1, 20, 14), cylGeo = new THREE.CylinderGeometry(1,1,1,20);
+
+// ground
+envMesh(new THREE.PlaneGeometry(220, 140), rgb([89,166,77]), 'Fabric', 0, 0, 0).rotation.x = -Math.PI/2;
+// belt + rails
+envMesh(boxGeo, rgb([31,31,36]), 'Metal', 0, 1.5, 0, 128, 1, 6);
+envMesh(boxGeo, rgb([230,191,51]), 'Metal', 0, 2.3, 3.6, 128, 0.6, 0.6);
+envMesh(boxGeo, rgb([230,191,51]), 'Metal', 0, 2.3, -3.6, 128, 0.6, 0.6);
+// base platforms (wood planks, accent trim)
+const BASE_CENTERS = [[-54,-22],[-18,-22],[18,-22],[54,-22],[-54,22],[-18,22],[18,22],[54,22]];
+const BASE_ACCENTS = [[217,89,89],[89,153,217],[89,204,115],[217,179,77],[179,115,217],[217,140,77],[77,191,191],[230,115,153]];
+BASE_CENTERS.forEach((c, i) => {
+  envMesh(boxGeo, rgb([168,124,78]), 'Fabric', c[0], 0, c[1], 20, 2, 14); // wood floor, top y=1
+  envMesh(boxGeo, rgb(BASE_ACCENTS[i]), 'Fabric', c[0], 0.15, c[1] + (c[1] < 0 ? -6.9 : 6.9), 20, 0.3, 0.25); // accent trim
+  // back wall + number plate
+  const wz = c[1] < 0 ? c[1] - 7.5 : c[1] + 7.5;
+  envMesh(boxGeo, rgb([232,224,205]), 'Fabric', c[0], 2.5, wz, 20, 5, 0.6);
+  // market stall behind the wall
+  const sz = c[1] < 0 ? c[1] - 11 : c[1] + 11;
+  envMesh(boxGeo, rgb([150,105,60]), 'Fabric', c[0], 1.0, sz, 7, 2, 3); // counter
+  for (let k = 0; k < 7; k++){ // striped awning
+    envMesh(boxGeo, rgb(k % 2 ? [235,235,230] : [200,50,55]), 'Fabric', c[0] - 3 + k, 3.4, sz, 1, 0.25, 4.5);
+  }
+  // warm stall lamp
+  const lamp = new THREE.Mesh(sphGeo, new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffb45e, emissiveIntensity: 1.6 }));
+  lamp.scale.setScalar(0.55); lamp.position.set(c[0] + 3.4, 3.6, sz); scene.add(lamp);
+});
+// layered trees (trunk + 3 canopy volumes)
+const TREES = [[-72,-38],[-36,-38],[36,-38],[72,-38],[-72,38],[-36,38],[36,38],[72,38]];
+const GREENS = [[46,125,60],[58,140,70],[38,110,55]];
+TREES.forEach((t, i) => {
+  envMesh(cylGeo, rgb([110,75,40]), 'Fabric', t[0], 2, t[1], 1.2, 4, 1.2);
+  const g = GREENS[i % 3];
+  envMesh(sphGeo, rgb(g), 'Fabric', t[0], 5.5, t[1], 5, 4, 5);
+  envMesh(sphGeo, rgb(g), 'Fabric', t[0] + 1.6, 4.4, t[1] + 0.8, 3.2, 2.6, 3.2);
+  envMesh(sphGeo, rgb(g), 'Fabric', t[0] - 1.5, 4.6, t[1] - 0.7, 3.0, 2.4, 3.0);
+});
+// pond (south gap) + fountain (north gap)
+envMesh(cylGeo, rgb([70,140,200]), 'SmoothPlastic', 0, 0.15, 55, 16, 0.3, 16);
+for (const p of [[-3,52],[3,57],[5,52]]) envMesh(cylGeo, rgb([60,140,70]), 'Fabric', p[0], 0.35, p[1], 1.6, 0.15, 1.6);
+envMesh(cylGeo, rgb([180,180,175]), 'Fabric', 0, 0.6, -55, 10, 1.2, 10);
+envMesh(cylGeo, rgb([90,160,220]), 'SmoothPlastic', 0, 1.0, -55, 8, 0.5, 8);
+envMesh(cylGeo, rgb([200,200,195]), 'Fabric', 0, 2.2, -55, 1.2, 2.4, 1.2);
+envMesh(sphGeo, rgb([140,200,255]), 'SmoothPlastic', 0, 3.8, -55, 1.4, 1.4, 1.4);
+
+// ---- views ----
+const beltY = 2;
+function placeRow(){
+  SNACKS.forEach((def, i) => {
+    const s = buildSnack(def, beltY);
+    s.position.x = -30 + i * 7.5;
+    scene.add(s);
+  });
+}
+if (VIEW === 'closeup'){
+  const burger = SNACKS.find(s => s.key === 'baron_burger');
+  const s = buildSnack(burger, 0); scene.add(s);
+  camera.position.set(0, 6.4, 9.5);
+  camera.lookAt(0, 5.6, 0.8);
+} else if (VIEW === 'burger'){
+  const burger = SNACKS.find(s => s.key === 'baron_burger');
+  const s = buildSnack(burger, 0); scene.add(s);
+  camera.position.set(7, 6.5, 13);
+  camera.lookAt(0, 4.2, 0);
+} else if (VIEW === 'hero'){
+  placeRow();
+  camera.position.set(38, 22, 42);
+  camera.lookAt(0, 2, -6);
+} else { // group (default)
+  placeRow();
+  camera.position.set(0, 10, 42);
+  camera.lookAt(0, 5.5, 0);
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+renderer.render(scene, camera);
+
+</script>
+</body>
+</html>
